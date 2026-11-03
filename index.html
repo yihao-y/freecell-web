@@ -1,0 +1,1039 @@
+<!doctype html>
+<!--
+FreeCell Web — initial public release with statistics and local storage safeguards.
+Third-party credits and license:
+# Third-party data and acknowledgements
+
+**Difficulty dataset:** `shlomif/MicrosoftFreeCell32000-minimal-freecells`, original data `(deal number, minimum necessary free cells)`. Copyright © 2016 Theodore Pringle. Licensed under MIT. Original: https://github.com/shlomif/MicrosoftFreeCell32000-minimal-freecells
+
+MIT License:
+
+Copyright (c) 2016 Theodore Pringle
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+**Reference solutions:** fetched on demand from `macroxue/freecell`, GPL-3.0-licensed project (https://github.com/macroxue/freecell). No solution data or solver implementation is shipped inside this archive. The program links to the original public source for reference solutions; the external source availability and licensing remain under its maintainers' control. We acknowledge and link the authors. Solution steps are not guaranteed to be optimal.
+
+Microsoft FreeCell deal shuffling algorithm is used for game-number compatibility.
+
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#122d27">
+  <meta name="description" content="FreeCell Web：Expert 纸牌、历史统计、解法回放与本地存档。">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+<style>
+:root{--bg:#0e231d;--panel:#15362c;--panel2:#1a4235;--edge:rgba(222,244,228,.18);--muted:#a1c1b1;--text:#f1f6ed;--accent:#c6e89c;--cardW:clamp(39px,9.85vw,78px);--cardH:calc(var(--cardW)*1.35);--overlap:clamp(21px,4.15vw,31px);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--text);background:var(--bg)}*{box-sizing:border-box}html,body{min-height:100%;margin:0}button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--edge);background:#204838;color:var(--text);border-radius:10px;padding:9px 13px;font-size:13px;font-weight:600;transition:background .15s}button:hover{background:#2b5a45}button:focus-visible{outline:2px solid var(--accent)}button:disabled{opacity:.35;cursor:not-allowed}.primary{background:var(--accent);color:#183327;border-color:var(--accent)}.primary:hover{background:#daf0bb}.subtle-strong{border-color:#a5cd88;color:#d1ebad}.masthead{max-width:1120px;margin:auto;padding:18px 21px 14px;display:flex;justify-content:space-between;align-items:center;gap:16px}.brand{display:flex;gap:11px;align-items:center}.logo{height:43px;width:43px;display:grid;place-items:center;border-radius:12px;background:#d6ead1;color:#1c392b;font-size:26px}.brand h1{margin:0;font-size:21px;letter-spacing:-.75px}.brand h1 span{color:#b2cdab;font-weight:400}.brand p{font-size:11px;color:var(--muted);margin:2px 0 0}.game-meta{display:flex;align-items:center;gap:9px;font-variant-numeric:tabular-nums}.game-meta>span{padding:6px 9px;background:#1b4134;border-radius:8px;font-size:12px}.game-meta .level{background:#415a30;color:#edf4cf}.toolbar{max-width:1080px;margin:0 auto 15px;display:flex;flex-wrap:wrap;gap:7px;padding:0 16px}.toolbar-sep{width:1px;background:var(--edge);margin:4px}.table-wrap{max-width:1080px;margin:auto;padding:23px 20px 24px;border:1px solid var(--edge);border-radius:21px;background:radial-gradient(ellipse at 50% 0%,#20523e,#12372e 62%,#103027);min-height:660px;overflow:hidden}.top-board{display:flex;justify-content:space-between;gap:24px;margin:0 0 29px}.slot-group{flex:0 1 47%;min-width:0}.group-title{font-size:10px;letter-spacing:1.7px;color:#b4ccbc;margin:0 0 9px 2px;display:flex;justify-content:space-between}.group-title span{letter-spacing:0;color:#d9e6cf}.slots{display:grid;grid-template-columns:repeat(4,minmax(0,var(--cardW)));gap:clamp(3px,1vw,10px)}.slot{width:var(--cardW);height:var(--cardH);background:#0b2b23;border-radius:9px;border:1px dashed #698474;display:flex;align-items:center;justify-content:center;position:relative;color:#a7c3ae}.slot.filled{border:0;background:transparent}.slot.home-symbol{font-size:28px;color:#729583}.slot.selected{box-shadow:0 0 0 3px var(--accent)}.tableau{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));column-gap:clamp(3px,1.1vw,12px);min-height:425px}.column{position:relative;min-height:425px;border-radius:9px;isolation:isolate}.column:before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:var(--cardW);height:var(--cardH);border:1px dashed #698474;border-radius:9px;background:#0c2b23;opacity:.8}.column.highlight:before{border:2px solid #e0efab}.card{width:var(--cardW);height:var(--cardH);position:absolute;left:50%;transform:translateX(-50%);top:0;background:#fafcf9;color:#14241d;border:1px solid #d1d8d0;border-radius:8px;box-shadow:0 2px 4px #0a211b50;touch-action:manipulation;user-select:none;cursor:pointer;overflow:hidden}.card.red{color:#c83d51}.card .corner{font-weight:750;font-size:clamp(11px,2.4vw,19px);line-height:1.08;position:absolute;top:5px;left:5px;letter-spacing:-.4px}.card .pip{position:absolute;right:6px;bottom:4px;font-size:clamp(16px,3.7vw,29px);line-height:1;opacity:.8}.card.selected{box-shadow:0 0 0 3px #e5ff9b,0 4px 14px #050e077a;z-index:100!important}.card.hint{box-shadow:0 0 0 3px #ffc068,0 4px 14px #050e077a}.card.dragging{opacity:.78}.slot .card{left:0;transform:none}.game-footer{max-width:1080px;margin:10px auto;display:flex;align-items:center;gap:14px;padding:0 13px;color:#bbd1c1;font-size:12px}.footer-tip{flex:1}.game-footer button{background:transparent;border:0;padding:5px;font-weight:400;color:#bed7ca}#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#eff7e7;color:#173225;border-radius:12px;padding:10px 18px;font-size:13px;z-index:50;box-shadow:0 12px 35px #0005;display:none;max-width:90vw;text-align:center}.overlay{position:fixed;inset:0;background:#0009;backdrop-filter:blur(5px);z-index:200;display:flex;align-items:center;justify-content:center;padding:14px}.overlay[hidden]{display:none}.modal{width:min(620px,100%);max-height:min(90dvh,870px);overflow:auto;border:1px solid #44634c;background:#193a30;color:#f1f5ef;border-radius:19px;padding:21px;box-shadow:0 25px 90px #0008}.modal h2{margin:0 0 7px;font-size:20px}.modal p{color:#bad1c0;font-size:13px;line-height:1.65}.modal-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.modal-head button{font-size:19px;border:0;background:transparent}.inline-form{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.inline-form input,.inline-form select{border-radius:9px;border:1px solid #668373;background:#0a291e;color:white;padding:11px 13px;min-width:0;flex:1}.list-rows{display:grid;gap:7px;max-height:340px;overflow:auto}.history-item{display:flex;justify-content:space-between;align-items:center;padding:10px;background:#20473a;border-radius:10px;gap:10px;font-size:13px}.history-item small{color:#aac8b7;font-size:11px;display:block;margin-top:3px}.actions{display:flex;gap:6px;flex-wrap:wrap}.actions button{padding:7px 9px}.replay-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:14px 0}.replay-actions button{flex:1}.replay-actions input[type=range]{width:100%;accent-color:#b9e498;order:2}.replay-caption{min-height:40px;color:#e0e8d6;font-size:13px;line-height:1.6}.smallprint{font-size:11px!important}.danger{color:#ffb6a9!important}.pill{display:inline-flex;padding:4px 8px;border-radius:9px;background:#335c44;font-size:11px}.modal .notice{background:#2b4d3a;padding:10px;border-radius:9px;font-size:12px}.modal .notice.error{background:#5f3933}.visually-hidden{position:absolute;clip:rect(0 0 0 0);width:1px;height:1px;overflow:hidden}@media(max-width:650px){:root{--cardW:calc((100vw - 38px)/8.44);--cardH:calc(var(--cardW)*1.49);--overlap:clamp(21px,5.6vw,29px)}.masthead{padding:14px 12px 12px;gap:7px}.brand .logo{width:35px;height:35px;font-size:21px;border-radius:9px}.brand h1{font-size:16px}.brand p{display:none}.game-meta{gap:4px}.game-meta>span{font-size:10px;padding:5px}.toolbar{padding:0 10px;gap:5px;margin-bottom:10px}.toolbar button{font-size:11px;padding:8px 9px}.toolbar-sep{display:none}.table-wrap{margin:0 4px;border-radius:11px;min-height:540px;padding:15px 8px 20px}.top-board{gap:10px;margin-bottom:18px}.slot-group{flex:1 1 50%}.slots{gap:3px}.group-title{font-size:8px;letter-spacing:.8px}.slot{border-radius:5px}.column{min-height:375px}.column:before{border-radius:5px}.card{border-radius:5px}.card .corner{left:3px;top:4px;font-size:clamp(11px,3.35vw,16px)}.card .pip{right:3px;bottom:4px;font-size:clamp(16px,4vw,25px)}.game-footer{font-size:11px}.modal{padding:16px}}
+.solution-dock{position:fixed;z-index:140;left:50%;bottom:max(9px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(680px,calc(100vw - 18px));padding:12px 14px;background:#0e2921f5;border:1px solid #83a28a;border-radius:16px;box-shadow:0 10px 65px #000a;backdrop-filter:blur(14px)}.solution-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.solution-title{font-size:13px;font-weight:750}.solution-caption{font-size:11px;color:#c3d9c8;margin-top:3px;min-height:16px}.solution-controls{display:flex;gap:6px;align-items:center}.solution-controls button{flex:1;padding:9px 4px}.solution-dock input[type=range]{width:100%;accent-color:#d0eb9e;margin:6px 0 0}.solution-dock .close{background:transparent;border:none;font-size:21px;flex:none;padding:4px 9px}.solution-progress{font-size:11px;color:#bacfbc;font-variant-numeric:tabular-nums}.solution-step-info{font-size:12px;color:#d8eed0;margin-top:7px}.table-wrap.replaying{padding-bottom:110px}.card:focus-visible{outline:3px solid #d6edb6}
+
+
+/* The exposed strip of every overlapped card must show BOTH rank and suit.
+   Use a horizontal label; a two-line label hides the suit beneath the next card. */
+.card .corner{display:inline-flex;align-items:center;gap:1px;white-space:nowrap;max-width:calc(100% - 5px);top:4px;left:4px;font-size:clamp(12px,2.45vw,19px);line-height:1}
+.card .corner-suit{font-size:.96em;line-height:1}
+@media(max-width:650px){.card .corner{top:3px;left:3px;font-size:clamp(10px,3vw,15px);letter-spacing:-.35px;gap:1px}}
+
+/* Main actions live in a fixed, touch-friendly bottom dock, not above the cards. */
+body{padding-bottom:calc(89px + env(safe-area-inset-bottom))}
+.toolbar-top{margin-bottom:12px}
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;z-index:130;display:flex;justify-content:space-around;gap:4px;padding:8px max(10px,env(safe-area-inset-left)) calc(9px + env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-right));background:linear-gradient(180deg,#183b30,#0c291e);border-top:1px solid #557864;box-shadow:0 -8px 24px #04150e65}
+.bottom-bar button{display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:55px;padding:4px 2px;background:transparent;border-color:transparent;border-radius:11px;font-size:11px;color:#cde5d0;touch-action:manipulation}
+.bottom-bar button:disabled{opacity:.28}.bottom-bar .subtle-strong{background:#2b5140;border:1px solid #648f72;color:#e3f4d2}
+.bottom-icon{display:block;font-size:25px;line-height:1.05;font-weight:500}
+.bottom-bar.is-hidden{display:none}
+#toast{bottom:calc(84px + env(safe-area-inset-bottom))}
+body:has(.solution-dock) #toast{bottom:155px}
+.card{touch-action:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.card.drag-source{opacity:.32}
+.drag-ghost{position:fixed;pointer-events:none;z-index:260;width:var(--cardW);transform:translate3d(0,0,0);filter:drop-shadow(0 11px 12px #0009);will-change:left,top}
+.drag-ghost .card{box-shadow:0 4px 10px #071a1380;border-color:#e3eecb;transform:translateX(-50%)}
+.slot.drop-target{box-shadow:0 0 0 3px #e6ff9b,inset 0 0 0 2px #b5dc9a;background:#335b41}
+.column.drop-target{background:rgba(196,236,149,.14);box-shadow:inset 0 0 0 2px #d1f299}
+@media(max-width:650px){.bottom-bar{gap:1px;padding-left:5px;padding-right:5px}.bottom-bar button{min-height:54px}.bottom-icon{font-size:25px}.game-footer{align-items:flex-start;line-height:1.4}.table-wrap{padding-bottom:25px}}
+/* Moving cards are painted above the table and animated by the browser compositor. */
+.card.flight-card{position:fixed;top:0;left:0;transform:none;pointer-events:none;z-index:300;box-shadow:0 9px 18px #06150c9c;will-change:transform}
+@media (prefers-reduced-motion:reduce){.card.flight-card{display:none}}
+
+/* Quiet, factual statistics: no ranking badges, judgement labels or pace targets. */
+.stats-modal{width:min(760px,100%)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:17px}
+.stats-cell{background:#20473a;border:1px solid #345c4a;border-radius:12px;padding:12px 11px;min-height:91px;display:flex;flex-direction:column;justify-content:space-between}
+.stats-key{font-size:11px;color:#b8cebf;line-height:1.5}
+.stats-value{font-size:23px;font-weight:750;letter-spacing:-.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stats-note{color:#acc5b4;font-size:11px;line-height:1.6;margin:8px 0 0}
+.stats-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:20px;margin-bottom:7px}
+.stats-header h3{font-size:15px;margin:0}
+.stats-range{display:flex;gap:3px;background:#0f3025;padding:3px;border-radius:10px;border:1px solid #365745}
+.stats-range button{font-size:11px;padding:6px 11px;border:none;background:transparent;border-radius:7px;color:#bdd0c0}
+.stats-range button[aria-pressed=true]{background:#365b47;color:#fff}
+.stats-chart{width:100%;padding:8px 6px 0;border:1px solid #365745;border-radius:12px;background:#102e25;min-height:155px}
+.stats-chart svg{display:block;width:100%;height:auto;max-height:270px}
+.stats-legend{display:flex;gap:16px;flex-wrap:wrap;margin:11px 0 2px;font-size:11px;color:#c9d9cd}
+.stats-legend span{display:flex;gap:6px;align-items:center}
+.stats-swatch{width:18px;height:3px;border-radius:3px;display:inline-block;background:#d9e6d0}
+.stats-swatch.avg{background:#d4c292}
+.stats-cell:nth-child(7) .stats-value{font-size:clamp(13px,3.8vw,18px)}
+.stats-empty{text-align:center;padding:40px 14px;color:#bdd3c3;font-size:13px;line-height:1.8}
+@media(max-width:650px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.stats-cell{padding:10px;min-height:78px}.stats-value{font-size:21px}.stats-range button{padding:6px 9px}.stats-modal{padding:16px}.bottom-bar button{font-size:10px}.bottom-icon{font-size:23px}}
+</style>
+  <title>FreeCell Web</title>
+</head>
+<body>
+<div id="app">
+  <header class="masthead">
+    <div class="brand"><div class="logo">♠</div><div><h1>FreeCell <span>Practice</span></h1><p>只玩牌，不做任务。</p></div></div>
+    <div class="game-meta"><span id="deal-label">#—</span><span id="level-label" class="level">—</span><span id="clock">00:00</span></div>
+  </header>
+  <nav class="toolbar toolbar-top" aria-label="牌局选择">
+    <button class="primary" id="new-btn">＋ Expert 新局</button>
+    <button id="pick-btn">指定牌号</button>
+    <button id="restart-btn">重新开始</button>
+  </nav>
+  <main class="table-wrap">
+    <div class="top-board">
+      <div class="slot-group"><div class="group-title">FREE CELLS <span id="free-count">4 空</span></div><div class="slots" id="freecells"></div></div>
+      <div class="slot-group"><div class="group-title">FOUNDATIONS <span id="home-count">0 / 52</span></div><div class="slots" id="foundations"></div></div>
+    </div>
+    <div id="tableau" class="tableau" aria-label="8列游戏牌"></div>
+  </main>
+  <footer class="game-footer"><span id="move-count">0 步</span><span class="footer-tip" id="status">轻点智能移动 · 按住牌拖至目标列或空当</span></footer>
+  <nav id="bottom-bar" class="bottom-bar" aria-label="常用游戏操作">
+    <button id="undo-btn" title="撤销一步" aria-label="撤销"><span class="bottom-icon">↶</span><span>撤销</span></button>
+    <button id="redo-btn" title="重做一步" aria-label="重做"><span class="bottom-icon">↷</span><span>重做</span></button>
+    <button id="solve-btn" class="subtle-strong" aria-label="查看解法"><span class="bottom-icon">☰</span><span>看解法</span></button>
+    <button id="history-btn" aria-label="历史牌局"><span class="bottom-icon">▤</span><span>历史</span></button>
+    <button id="stats-btn" aria-label="历史统计"><span class="bottom-icon">▥</span><span>统计</span></button>
+    <button id="help-btn" aria-label="玩法说明"><span class="bottom-icon">?</span><span>帮助</span></button>
+  </nav>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="overlay" class="overlay" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+  <script>
+(()=>{
+"use strict";
+// Built-in verified example solutions for offline testing. Other deals load on demand.
+const BUNDLED_SOLUTIONS={
+  1:'6r6r7r764r7r86472482835254455418131r586125762r272r123r3241',
+  617:'4r462r2772424r4r4r74d41r7174831683c8212rc2828727582r525754343r35621316'
+};
+
+// Deterministic Microsoft FreeCell deal and independent, testable game rules.
+// Card IDs: rank 0..12 (A..K), suit 0=♣ 1=♦ 2=♥ 3=♠.
+const SUITS=['♣','♦','♥','♠'];
+const RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const rank=c=>c>>2;
+const suit=c=>c&3;
+const red=c=>suit(c)===1||suit(c)===2;
+const label=c=>c===null?'':RANKS[rank(c)]+SUITS[suit(c)];
+const clone=s=>({columns:s.columns.map(x=>x.slice()),free:s.free.slice(),freeOrder:s.freeOrder.slice(),found:s.found.slice()});
+const top=x=>x[x.length-1];
+function deal(number){
+  if(!Number.isSafeInteger(number)||number<1||number>1000000)throw Error('只支持微软编号 1–1,000,000');
+  const deck=Array.from({length:52},(_,i)=>i);let seed=number>>>0;
+  for(let i=0;i<52;i++){
+    const left=52-i;
+    seed=(Math.imul(seed,214013)+2531011)>>>0;
+    const j=((seed>>>16)&32767)%left;
+    [deck[j],deck[left-1]]=[deck[left-1],deck[j]];
+  }
+  deck.reverse();
+  const s={columns:Array.from({length:8},()=>[]),free:[null,null,null,null],freeOrder:[],found:[0,0,0,0]};
+  deck.forEach((c,i)=>s.columns[i%8].push(c));
+  return s;
+}
+const canStack=(c,d)=>c!==null&&d!==null&&rank(c)+1===rank(d)&&red(c)!==red(d);
+const canHome=(s,c)=>c!==null&&s.found[suit(c)]===rank(c);
+function sortedTail(col){
+  if(!col.length)return 0;let n=1;
+  for(let i=col.length-2;i>=0;i--){if(!canStack(col[i+1],col[i]))break;n++;}
+  return n;
+}
+function maxMove(s,src,dst){
+  let blanks=s.free.filter(x=>x===null).length;
+  let empty=0;
+  for(let i=0;i<8;i++)if(i!==src&&i!==dst&&!s.columns[i].length)empty++;
+  return (blanks+1)*(2**empty);
+}
+function canMove(s,from,to,count){
+  if(from.type===to.type&&from.i===to.i)return false;
+  let a;
+  if(from.type==='t'){
+    const col=s.columns[from.i];
+    if(!col.length||count<1||count>col.length||count>sortedTail(col))return false;
+    a=col[col.length-count];
+  }else if(from.type==='f'){
+    if(count!==1||s.free[from.i]===null)return false;
+    a=s.free[from.i];
+  }else return false;
+  if(to.type==='h')return count===1&&to.i===suit(a)&&canHome(s,a);
+  if(to.type==='f')return count===1&&from.type==='t'&&s.free[to.i]===null;
+  if(to.type==='t'){
+    if(from.type==='t'&&count>maxMove(s,from.i,to.i))return false;
+    const target=top(s.columns[to.i]);
+    return target===undefined||canStack(a,target);
+  }
+  return false;
+}
+function doMove(s,from,to,count=1,autoMode='safe',stages=null){
+  if(!canMove(s,from,to,count))return null;
+  const moved=from.type==='t'?s.columns[from.i].splice(-count):[s.free[from.i]];
+  if(from.type==='f'){
+    s.free[from.i]=null;
+    s.freeOrder.splice(s.freeOrder.indexOf(moved[0]),1);
+  }
+  const a=moved[0];
+  if(to.type==='t')s.columns[to.i].push(...moved);
+  else if(to.type==='f'){s.free[to.i]=a;s.freeOrder.push(a);}
+  else s.found[suit(a)]++;
+  if(stages)stages.push(clone(s)); // Show the player's move before any automatic foundation moves.
+  const extra=autoHome(s,autoMode,stages);
+  return {from,to,count,cards:moved,auto:extra};
+}
+function autoHome(s,mode='safe',stages=null){
+  const advanced=[];
+  if(mode==='none')return advanced;
+  const safe=c=>{
+    if(!canHome(s,c))return false;
+    if(mode==='max'||rank(c)<=1)return true;
+    if(red(c))return Math.min(s.found[0],s.found[3])>=rank(c);
+    return Math.min(s.found[1],s.found[2])>=rank(c);
+  };
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(let j=s.freeOrder.length-1;j>=0;j--){
+      const c=s.freeOrder[j];if(safe(c)){
+        const physical=s.free.indexOf(c);s.free[physical]=null;s.freeOrder.splice(j,1);s.found[suit(c)]++;advanced.push(c);if(stages)stages.push(clone(s));changed=true;
+      }
+    }
+    for(let i=0;i<8;i++){
+      const col=s.columns[i],c=top(col);
+      if(c!==undefined&&safe(c)){col.pop();s.found[suit(c)]++;advanced.push(c);if(stages)stages.push(clone(s));changed=true;}
+    }
+  }
+  return advanced;
+}
+function complete(s){return s.found.every(n=>n===13);}
+// Existing public solution data uses 2-character commands: 1-8 columns,
+// a-d refer to the *ordered reserve array*, r means first free reserve, h means home.
+function applyCode(s,code,mode='max',stages=null){
+  if(!/^[1-8a-d][1-8rh]$/.test(code))return null;
+  const [src,dst]=code;
+  let from;
+  if(/[1-8]/.test(src))from={type:'t',i:Number(src)-1};
+  else{
+    const c=s.freeOrder[src.charCodeAt(0)-97];
+    if(c===undefined)return null;
+    from={type:'f',i:s.free.indexOf(c)};
+  }
+  let to;
+  if(dst==='h'){const c=from.type==='t'?top(s.columns[from.i]):s.free[from.i];to={type:'h',i:suit(c)};}
+  else if(dst==='r')to={type:'f',i:s.free.indexOf(null)};
+  else to={type:'t',i:Number(dst)-1};
+  if(to.i<0)return null;
+  let count=1;
+  if(from.type==='t'&&to.type==='t'){
+    const origin=s.columns[from.i],dest=s.columns[to.i],n=sortedTail(origin);
+    if(dest.length){count=rank(top(dest))-rank(top(origin));}
+    else {count=Math.min(n,maxMove(s,from.i,to.i));if(count===origin.length)return null;}
+  }
+  return doMove(s,from,to,count,mode,stages);
+}
+function decodeSolution(number,raw){
+  if(typeof raw!=='string'||raw.length%2||!/^[1-8a-drh]+$/.test(raw))throw Error('解法数据格式不正确');
+  const state=deal(number),states=[clone(state)],moves=[],segments=[];
+  autoHome(state,raw.includes('h')?(raw.match(/h/g)||[]).length===52?'none':'safe':'max');
+  // Make initial autoplayer state visible to the viewer as step 0.
+  states[0]=clone(state);
+  const mode=raw.includes('h')?(raw.match(/h/g)||[]).length===52?'none':'safe':'max';
+  for(let i=0;i<raw.length;i+=2){
+    const code=raw.slice(i,i+2);
+    const frames=[];
+    const result=applyCode(state,code,mode,frames);
+    if(!result)throw Error(`解法第 ${i/2+1} 步 ${code} 无法执行`);
+    moves.push({...result,code});states.push(clone(state));segments.push(frames);
+  }
+  if(!complete(state))throw Error('解法未能完成该牌局');
+  return {states,moves,segments};
+}
+
+// MIT-licensed classification data, downloaded on first online visit and kept locally.
+// Source: https://github.com/shlomif/MicrosoftFreeCell32000-minimal-freecells
+// © 2016 Theodore Pringle, MIT License; see THIRD_PARTY_NOTICES.md.
+const EXPERT_SOURCE='https://raw.githubusercontent.com/shlomif/MicrosoftFreeCell32000-minimal-freecells/master/msfc32k-min-fc';
+const EXPERT_CACHE_KEY='freecell-expert-bits-v1';
+let active=null;
+function parse(data){
+  const bytes=new Uint8Array(4000);let count=0;
+  for(const line of data.trim().split(/\r?\n/)){
+    const match=/^(\d+)\s+([0-5])\s*$/.exec(line);
+    if(!match)continue;
+    const number=Number(match[1]),score=Number(match[2]);
+    if(number>=1&&number<=32000&&(score===3||score===4)){
+      bytes[(number-1)>>3]|=1<<((number-1)&7);count++;
+    }
+  }
+  if(count!==6618)throw Error('Expert 数据完整性校验失败');
+  return bytes;
+}
+function pack(bytes){let s='';for(let i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s)}
+function unpack(s){const raw=atob(s);if(raw.length!==4000)throw Error('本地 Expert 数据不完整');return Uint8Array.from(raw,x=>x.charCodeAt(0));}
+async function loadExpert(){
+  if(active)return active;
+  try{const local=localStorage.getItem(EXPERT_CACHE_KEY);if(local){active=unpack(local);return active;}}catch(_e){}
+  // First visit needs internet. After this, the compact bitset is stored in the browser.
+  const response=await fetch(EXPERT_SOURCE,{cache:'force-cache'});
+  if(!response.ok)throw Error('暂时无法下载难度数据，请联网重试');
+  active=parse(await response.text());
+  try{localStorage.setItem(EXPERT_CACHE_KEY,pack(active));}catch(_e){}
+  return active;
+}
+function expertNumbers(bits){
+  const result=[];
+  for(let n=1;n<=32000;n++)if(n!==11982&&(bits[(n-1)>>3]&(1<<((n-1)&7))))result.push(n);
+  return result;
+}
+function isExpert(n){return active&&n>=1&&n<=32000&&!!(active[(n-1)>>3]&(1<<((n-1)&7)));}
+
+const $=id=>document.getElementById(id);
+// The key is deliberately unchanged from V2.3 for automatic migration on a
+// stable website origin. IndexedDB is a redundant local snapshot, NOT cloud backup.
+const KEY='freecell-practice-v1';
+const ARCHIVE_DB='freecell-practice-archive-v1';
+let store={records:[],active:null,updatedAt:0};
+let archiveDbPromise=null, pendingArchive=null, archiveFlushing=false, archiveErrorWarned=false;
+function openArchive(){
+  if(!('indexedDB' in window))return Promise.reject(new Error('IndexedDB unsupported'));
+  if(!archiveDbPromise){
+    archiveDbPromise=new Promise((resolve,reject)=>{
+      const req=indexedDB.open(ARCHIVE_DB,1);
+      req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains('snapshots'))db.createObjectStore('snapshots');};
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error||new Error('IndexedDB unavailable'));
+      req.onblocked=()=>reject(new Error('IndexedDB blocked'));
+    }).catch(err=>{archiveDbPromise=null;throw err;});
+  }
+  return archiveDbPromise;
+}
+async function readArchive(){
+  const db=await openArchive();
+  return new Promise((resolve,reject)=>{
+    const req=db.transaction('snapshots','readonly').objectStore('snapshots').get('main');
+    req.onsuccess=()=>{
+      try{resolve(req.result?JSON.parse(req.result):null);}catch(err){reject(err);}
+    };
+    req.onerror=()=>reject(req.error||new Error('Cannot read archive'));
+  });
+}
+async function writeArchive(json){
+  const db=await openArchive();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('snapshots','readwrite');
+    tx.objectStore('snapshots').put(json,'main');
+    tx.oncomplete=()=>resolve();
+    tx.onerror=()=>reject(tx.error||new Error('Cannot save archive'));
+    tx.onabort=()=>reject(tx.error||new Error('Archive transaction aborted'));
+  });
+}
+async function flushArchive(){
+  if(archiveFlushing)return;
+  archiveFlushing=true;
+  try{
+    while(pendingArchive!==null){
+      const json=pendingArchive;pendingArchive=null;
+      try{await writeArchive(json);}
+      catch(err){
+        console.warn('IndexedDB 存档副本不可用',err);
+        if(!archiveErrorWarned){archiveErrorWarned=true;status('存档副本不可用，请定期导出 JSON 备份。');}
+        break;
+      }
+    }
+  }finally{archiveFlushing=false;}
+}
+
+let current=null,states=[],selected=null,viewer=null,viewerTimer=null,viewerPlaying=false,expertPool=null;
+let lastTick=Date.now(),dragStart=null,suppressClickUntil=0;
+let flying=[];
+let animationState=null, sequenceTimer=null, sequenceSerial=0;
+// A single card flies at a time. Update only its source and destination DOM;
+// do not rebuild the entire 52-card layout between flights.
+const HOME_FLIGHT_MS=265, HOME_GAP_MS=12;
+// Accelerate by the *consecutive auto-home card index*, not by looking ahead
+// at the eventual number of auto-home cards. The first card is always gentle.
+// Every subsequent auto-home card is faster, up to a readable 130 ms floor.
+// Only one card flies at a time: the next begins after animation.finished.
+function consecutiveHomeDuration(zeroBasedIndex){
+  return zeroBasedIndex === 0 ? 220 : Math.max(130, 230 - 11 * zeroBasedIndex);
+}
+const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)');
+function stopFlights(){
+  for(const f of flying){
+    if(f.animation){f.animation.onfinish=null;f.animation.cancel();}
+    f.ghost.remove();
+    f.foundationUnderlay?.remove();
+    if(f.target?.isConnected)f.target.style.opacity='';
+  }
+  flying=[];
+}
+function cardRects(){
+  const result=new Map();
+  document.querySelectorAll('#tableau .card[data-card],#freecells .card[data-card],#foundations .card[data-card]')
+    .forEach(el=>result.set(Number(el.dataset.card),el.getBoundingClientRect()));
+  return result;
+}
+function locations(s){
+  const loc=new Map();
+  s.columns.forEach((col,i)=>col.forEach((c,j)=>loc.set(c,`t${i}/${j}`)));
+  s.free.forEach((c,i)=>{if(c!==null)loc.set(c,`f${i}`);});
+  s.found.forEach((len,i)=>{for(let r=0;r<len;r++)loc.set((r<<2)|i,`h${i}`);});
+  return loc;
+}
+function slotRect(loc){
+  if(!loc)return null;
+  if(loc[0]==='h')return $('foundations').children[Number(loc[1])]?.getBoundingClientRect();
+  if(loc[0]==='f')return $('freecells').children[Number(loc[1])]?.getBoundingClientRect();
+  return null;
+}
+function animateBoard(before,after,oldRects,overrides=null){
+  if(reducedMotion?.matches)return;
+  const oldLoc=locations(before),newLoc=locations(after),newRects=cardRects();
+  for(const [card,to] of newLoc){
+    const from=oldLoc.get(card);
+    if(!from||from===to)continue;
+    const origin=overrides?.get(card)||oldRects.get(card)||slotRect(from);
+    const end=newRects.get(card)||slotRect(to);
+    if(!origin||!end)continue;
+    if(Math.abs(origin.left-end.left)+Math.abs(origin.top-end.top)<3)continue;
+    const target=document.querySelector(`.card[data-card="${card}"]`);
+    const ghost=cardDiv(card);
+    ghost.classList.add('flight-card');ghost.removeAttribute('role');ghost.removeAttribute('tabindex');
+    ghost.style.width=`${origin.width}px`;ghost.style.height=`${origin.height}px`;
+    document.body.appendChild(ghost);
+    // A foundation slot already has its previous top card. A full render has
+    // replaced it with the incoming card, which we hide until the flight lands.
+    // Recreate that previous top *under* the incoming flight, so the target
+    // never flashes empty while the next rank is travelling toward it.
+    let foundationUnderlay=null;
+    if(to[0]==='h' && from[0]!=='h'){
+      const si=Number(to[1]),oldRankCount=before.found[si];
+      const slot=$('foundations').children[si];
+      if(slot && oldRankCount>0){
+        foundationUnderlay=cardDiv(((oldRankCount-1)<<2)|si);
+        foundationUnderlay.classList.add('foundation-underlay');
+        foundationUnderlay.removeAttribute('role');
+        foundationUnderlay.removeAttribute('tabindex');
+        foundationUnderlay.style.pointerEvents='none';
+        slot.appendChild(foundationUnderlay);
+      }
+    }
+    if(target)target.style.opacity='0';
+    const anim=ghost.animate([
+      {transform:`translate3d(${origin.left}px,${origin.top}px,0)`},
+      {transform:`translate3d(${end.left}px,${end.top}px,0)`}
+    ],{duration:HOME_FLIGHT_MS,easing:'cubic-bezier(.38,.02,.62,.98)',fill:'both'});
+    const flight={ghost,target,foundationUnderlay,animation:anim};flying.push(flight);
+    anim.onfinish=()=>{
+      // The arriving card and the prior foundation top switch in one frame.
+      if(target?.isConnected)target.style.opacity='';
+      foundationUnderlay?.remove();
+      ghost.remove();
+      flying=flying.filter(x=>x!==flight);
+    };
+  }
+}
+function renderWithMotion(before,after,overrides=null){
+  const oldRects=cardRects();
+  stopFlights();
+  render();
+  animateBoard(before,after,oldRects,overrides);
+}
+function cancelSequence(repaint=false){
+  clearTimeout(sequenceTimer);sequenceTimer=null;sequenceSerial++;
+  animationState=null;stopFlights();
+  if(repaint&&current)render();
+}
+const sequenceSleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+// Moves exactly one new card to a foundation without recreating all board nodes.
+// The old foundation top stays visible until the new card physically lands.
+async function animateHomeStage(before,after,serial,flightMs=HOME_FLIGHT_MS){
+  let suitIndex=-1;
+  for(let i=0;i<4;i++){
+    if(after.found[i]===before.found[i]+1){suitIndex=i;break;}
+  }
+  if(suitIndex<0){
+    animationState=after;renderWithMotion(before,after);
+    await sequenceSleep(flightMs);
+    return;
+  }
+  const card=(before.found[suitIndex]<<2)|suitIndex;
+  const source=document.querySelector(`#tableau .card[data-card="${card}"],#freecells .card[data-card="${card}"]`);
+  const destination=$('foundations').children[suitIndex];
+  if(!source||!destination){
+    animationState=after;renderWithMotion(before,after);
+    await sequenceSleep(flightMs);
+    return;
+  }
+  const rect=source.getBoundingClientRect(),targetRect=destination.getBoundingClientRect();
+  const ghost=cardDiv(card);
+  ghost.classList.add('flight-card');ghost.removeAttribute('role');ghost.removeAttribute('tabindex');
+  ghost.style.width=`${rect.width}px`;ghost.style.height=`${rect.height}px`;
+  document.body.appendChild(ghost);
+  // Remove only the travelling card, exposing the card below without a full render.
+  const parent=source.parentElement;
+  source.remove();
+  if(parent?.closest('#freecells'))parent.classList.remove('filled');
+  const anim=ghost.animate([
+    {transform:`translate3d(${rect.left}px,${rect.top}px,0)`},
+    {transform:`translate3d(${targetRect.left}px,${targetRect.top}px,0)`}
+  ],{duration:flightMs,easing:'cubic-bezier(.38,.02,.62,.98)',fill:'both'});
+  const flight={ghost,target:null,animation:anim};flying.push(flight);
+  try{await anim.finished;}catch(_e){return;}
+  if(serial!==sequenceSerial)return;
+  ghost.remove();flying=flying.filter(f=>f!==flight);
+  destination.replaceChildren(cardDiv(card));
+  destination.classList.add('filled');
+  animationState=after;
+  $('home-count').textContent=after.found.reduce((sum,x)=>sum+x,0)+' / 52';
+  $('free-count').textContent=after.free.filter(x=>x===null).length+' 空';
+}
+function playStages(before,frames,{origins=null,done=null}={}){
+  cancelSequence(false);
+  if(!frames?.length||reducedMotion?.matches){animationState=null;render();done?.();return;}
+  const serial=sequenceSerial;
+  animationState=frames[0];
+  renderWithMotion(before,frames[0],origins);
+  (async()=>{
+    // Initial manual/solver move; subsequent moves are separate home flights.
+    await sequenceSleep(HOME_FLIGHT_MS);
+    for(let i=1;i<frames.length;i++){
+      if(serial!==sequenceSerial)return;
+      const flightMs=consecutiveHomeDuration(i-1);
+      await animateHomeStage(frames[i-1],frames[i],serial,flightMs);
+      if(serial!==sequenceSerial)return;
+      // No extra delay: each card has fully landed before the next one starts.
+    }
+    if(serial!==sequenceSerial)return;
+    animationState=null;sequenceTimer=null;render();done?.();
+  })().catch(err=>{
+    console.error('自动收牌动画失败',err);
+    if(serial===sequenceSerial){animationState=null;render();done?.();}
+  });
+}
+
+async function loadSaved(){
+  let local=null,archived=null;
+  try{local=JSON.parse(localStorage.getItem(KEY)||'null');}catch(err){console.warn('无法读取原本的 localStorage 历史',err);}
+  try{archived=await readArchive();}catch(err){console.warn('无法读取 IndexedDB 存档副本',err);}
+  const good=d=>d&&Array.isArray(d.records);
+  // Prefer the newest valid snapshot. Legacy v2.3 records have no updatedAt.
+  const data=good(archived)&&(!good(local)||Number(archived.updatedAt||0)>Number(local.updatedAt||0))?archived:local;
+  if(good(data)){
+    store.records=data.records.filter(r=>Number.isInteger(r.number)&&r.number>0&&r.number<=1000000&&Array.isArray(r.moves));
+    store.active=data.active;
+    store.updatedAt=Number(data.updatedAt)||0;
+    // Migrate in either direction without changing the original storage key.
+    if(!good(local)||!good(archived)||local!==data)save();
+  }
+}
+function save(){
+  store.updatedAt=Date.now();
+  const json=JSON.stringify(store);
+  try{localStorage.setItem(KEY,json);}catch(err){console.warn('localStorage 写入失败',err);status('浏览器存储空间不足，请导出历史备份。');}
+  pendingArchive=json;
+  void flushArchive();
+}
+function findRecord(n){return store.records.find(r=>r.number===n);}
+function validateMoves(r){
+  const st=deal(r.number);autoHome(st,'safe');
+  const out=[clone(st)];const valid=[];
+  for(const action of r.moves){
+    if(!action||!action.from||!action.to)break;
+    const res=doMove(st,action.from,action.to,action.count,'safe');
+    if(!res)break;
+    out.push(clone(st));valid.push(action);
+  }
+  r.moves=valid;r.cursor=Math.max(0,Math.min(valid.length,Number(r.cursor)||0));
+  return out;
+}
+function startDeal(number,{fresh=false}={}){
+  if(!Number.isInteger(number)||number<1||number>1000000){status('请输入 1–1,000,000 之间的牌局编号。');return;}
+  closeSolution();cancelSequence();
+  let rec=findRecord(number);
+  if(!rec||fresh){
+    if(rec&&fresh){rec.moves=[];rec.cursor=0;rec.elapsed=0;rec.finishedAt=null;rec.startedAt=Date.now();}
+    else {rec={number,startedAt:Date.now(),finishedAt:null,elapsed:0,moves:[],cursor:0};store.records.unshift(rec);}
+  }
+  store.active=number;current=rec;
+  states=validateMoves(rec);selected=null;save();render();
+}
+function currentState(){return animationState||(viewer?viewer.data.states[viewer.step]:states[current.cursor]);}
+function applyPlayer(from,to,count=1,animationOrigins=null){
+  if(viewer||!current)return false;
+  const base=clone(states[current.cursor]);
+  if(animationState)return false;
+  const frames=[];
+  const move=doMove(base,from,to,count,'safe',frames);
+  if(!move)return false;
+  if(current.cursor<current.moves.length){current.moves=current.moves.slice(0,current.cursor);states=states.slice(0,current.cursor+1);}
+  current.moves.push({from,to,count});current.cursor++;
+  states.push(base);selected=null;
+  if(complete(base)&&!current.finishedAt){current.finishedAt=Date.now();setTimeout(()=>status(`完成 #${current.number}！用时 ${clockText(current.elapsed)}，${current.cursor} 步。`),60);}
+  save();
+  if(move.auto.length)playStages(states[current.cursor-1],frames,{origins:animationOrigins});
+  else renderWithMotion(states[current.cursor-1],base,animationOrigins);
+  return true;
+}
+function choose(source){
+  if(viewer)return;
+  if(source.type==='t'){
+    const col=states[current.cursor].columns[source.i];
+    if(!col.length)return;
+    const count=col.length-source.index;
+    if(count>sortedTail(col)){status('只能选择红黑交替、点数递减的连续牌。');return;}
+    selected={type:'t',i:source.i,count,index:source.index};
+  }else if(source.type==='f'){
+    if(states[current.cursor].free[source.i]===null)return;
+    selected={type:'f',i:source.i,count:1};
+  }
+  render();
+}
+function fastMove(s){
+  const from={type:s.type,i:s.i},state=states[current.cursor],count=s.count;
+  if(count===1){const card=from.type==='t'?top(state.columns[from.i]):state.free[from.i];if(card!==null&&card!==undefined&&applyPlayer(from,{type:'h',i:suit(card)}))return true;}
+  // Prefer building a nonempty column over consuming a free cell.
+  for(let k=0;k<8;k++)if(state.columns[k].length&&applyPlayer(from,{type:'t',i:k},count))return true;
+  for(let k=0;k<8;k++)if(!state.columns[k].length&&applyPlayer(from,{type:'t',i:k},count))return true;
+  if(from.type==='t'&&count===1)for(let k=0;k<4;k++)if(applyPlayer(from,{type:'f',i:k}))return true;
+  return false;
+}
+function onClickCard(source){
+  if(Date.now()<suppressClickUntil||viewer||animationState)return;
+  // If a prior tap could not find an automatic move, allow tap-to-target.
+  if(selected){
+    const from={type:selected.type,i:selected.i};
+    if(source.type==='t'&&source.i!==from.i&&applyPlayer(from,{type:'t',i:source.i},selected.count))return;
+    if(source.type===from.type&&source.i===from.i&&source.index===selected.index){selected=null;render();return;}
+    selected=null;
+  }
+  // One tap immediately performs a legal automatic move, Microsoft-style.
+  // A tapped sub-sequence is moved as a whole when the rules permit it.
+  const state=states[current.cursor];let count=1;
+  if(source.type==='t'){
+    const col=state.columns[source.i];count=col.length-source.index;
+    if(!col.length||count>sortedTail(col)){status('只能移动红黑交替、点数递减的连续牌。');return;}
+  }else if(source.type==='f'&&state.free[source.i]===null)return;
+  const pick={...source,count};
+  if(fastMove(pick))return;
+  // Fall back to manual selection only if the automatic move found no target.
+  choose(source);
+  status('没有找到可自动移动的位置；可轻点目标位置，或按住拖动。');
+}
+function onClickTarget(type,i){
+  if(viewer||animationState)return;
+  if(selected){
+    if(applyPlayer({type:selected.type,i:selected.i},{type,i},selected.count))return;
+    if(type==='h'){status('这张牌现在不能收进基础牌堆。');return;}
+  }
+  if(type==='f')choose({type:'f',i});
+  if(type==='t'&&!selected)status('先选一张牌，再轻点目标列。');
+}
+function cardDiv(card,props={}){
+  const node=document.createElement('div');
+  node.className='card'+(red(card)?' red':'')+(props.selected?' selected':'');
+  node.setAttribute('role','button');node.tabIndex=0;
+  node.setAttribute('aria-label',label(card));node.dataset.card=String(card);
+  node.innerHTML=`<span class="corner"><span class="corner-rank">${RANKS[rank(card)]}</span><span class="corner-suit">${SUITS[suit(card)]}</span></span><span class="pip">${SUITS[suit(card)]}</span>`;
+  if(props.top!==undefined)node.style.top=`calc(var(--overlap) * ${props.top})`;
+  if(props.order!==undefined)node.style.zIndex=props.order;
+  if(props.onClick){node.addEventListener('click',e=>{e.stopPropagation();props.onClick()});node.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();props.onClick();}})}
+  if(props.source){
+    node.addEventListener('pointerdown',e=>{
+      if(viewer||animationState||e.button!==0)return;
+      const src=props.source,st=states[current.cursor];
+      const cards=src.type==='t'?st.columns[src.i].slice(src.index):[st.free[src.i]];
+      const allowed=src.type==='f'||cards.length<=sortedTail(st.columns[src.i]);
+      const rect=node.getBoundingClientRect();
+      dragStart={pointer:e.pointerId,x:e.clientX,y:e.clientY,source:src,rect,cards,allowed,active:false,ghost:null,dropEl:null};
+    });
+  }
+  return node;
+}
+function render(){
+  if(!current)return;
+  const s=currentState(),isReplay=!!viewer;
+  $('deal-label').textContent='#'+(isReplay?viewer.number:current.number);
+  $('level-label').textContent=isReplay?'解法回放':(isExpert(current.number)?'Expert 候选':'自由牌局');
+  $('clock').textContent=clockText(current.elapsed||0);
+  $('move-count').textContent=(isReplay?viewer.step:current.cursor)+' 步'+(isReplay?` / ${viewer.data.moves.length}`:'');
+  $('home-count').textContent=s.found.reduce((a,b)=>a+b,0)+' / 52';
+  $('free-count').textContent=s.free.filter(c=>c===null).length+' 空';
+  $('undo-btn').disabled=isReplay||current.cursor===0;
+  $('redo-btn').disabled=isReplay||current.cursor>=current.moves.length;
+  $('restart-btn').disabled=isReplay;
+  $('pick-btn').disabled=isReplay;
+  $('new-btn').disabled=isReplay;
+  $('history-btn').disabled=isReplay;
+  $('stats-btn').disabled=isReplay;
+  $('solve-btn').disabled=isReplay;
+  $('bottom-bar').classList.toggle('is-hidden',isReplay);
+  $('tableau').classList.toggle('replaying',isReplay);
+
+  const free=$('freecells');free.replaceChildren();
+  for(let i=0;i<4;i++){
+    const slot=document.createElement('div');slot.className='slot'+(s.free[i]!==null?' filled':'');
+    slot.setAttribute('aria-label',`空当${i+1}`);
+    slot.addEventListener('click',()=>onClickTarget('f',i));
+    if(s.free[i]!==null)slot.appendChild(cardDiv(s.free[i],{selected:!isReplay&&selected?.type==='f'&&selected.i===i,onClick:()=>onClickCard({type:'f',i}),source:{type:'f',i}}));
+    free.appendChild(slot);
+  }
+  const foundations=$('foundations');foundations.replaceChildren();
+  for(let i=0;i<4;i++){
+    const slot=document.createElement('div');slot.className='slot home-symbol'+(s.found[i]?' filled':'');
+    slot.textContent=SUITS[i];slot.setAttribute('aria-label',`${SUITS[i]}收牌区`);
+    if(s.found[i]){slot.replaceChildren(cardDiv(((s.found[i]-1)<<2)|i));}
+    slot.addEventListener('click',()=>onClickTarget('h',i));foundations.appendChild(slot);
+  }
+  const board=$('tableau');board.replaceChildren();
+  for(let i=0;i<8;i++){
+    const column=document.createElement('div');column.className='column';column.dataset.col=i;
+    column.setAttribute('aria-label',`第${i+1}列`);
+    column.addEventListener('click',()=>onClickTarget('t',i));
+    s.columns[i].forEach((c,j)=>{
+      column.appendChild(cardDiv(c,{top:j,order:j+1,
+        selected:!isReplay&&selected?.type==='t'&&selected.i===i&&j>=selected.index,
+        onClick:()=>onClickCard({type:'t',i,index:j}),source:{type:'t',i,index:j}}));
+    });
+    board.appendChild(column);
+  }
+  $('status').textContent=isReplay?'解法是从初始牌局推导的参考路线，不影响你的进度。':current.finishedAt?'本局已完成。可以打开历史或查看参考解法。':'轻点纸牌自动移动；按住纸牌拖动到指定位置。';
+}
+function clockText(s){s=Math.max(0,Math.floor(s||0));return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
+function status(message){const node=$('toast');node.textContent=message;node.style.display='block';clearTimeout(status.timer);status.timer=setTimeout(()=>node.style.display='none',3400);}
+function openModal(html){$('modal').classList.remove('stats-modal');$('modal').innerHTML=html;$('overlay').hidden=false;$('modal').querySelector('[data-close]')?.addEventListener('click',closeModal);}
+function closeModal(){$('overlay').hidden=true;$('modal').replaceChildren();}
+function newExpert(){
+  if(!expertPool){status('正在载入 Expert 数据，请保持联网。');loadExpert().then(readyExpert).then(newExpert).catch(e=>status(e.message));return;}
+  const seen=new Set(store.records.map(x=>x.number));
+  const available=expertPool.filter(n=>!seen.has(n));
+  if(!available.length){status('全部 6,618 个 Expert 候选牌局都已玩过。请用指定牌号重玩。');return;}
+  const bytes=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)crypto.getRandomValues(bytes);else bytes[0]=Math.floor(Math.random()*2**32);
+  startDeal(available[bytes[0]%available.length]);
+}
+function readyExpert(bits){expertPool=expertNumbers(bits);render();}
+function manualDeal(){
+  openModal(`<div class="modal-head"><h2>指定牌局</h2><button data-close aria-label="关闭">×</button></div><p>输入微软经典 FreeCell 编号（1–1,000,000）。原来玩过的牌局会继续已有进度。</p><form class="inline-form" id="deal-form"><input aria-label="牌局编号" id="deal-input" type="number" min="1" max="1000000" required placeholder="例如 617"><button type="submit" class="primary">打开</button></form><p class="smallprint">经典 #11982 是无解牌局，Expert 随机池不会选它；手动输入仍可研究。</p>`);
+  $('deal-form').addEventListener('submit',e=>{e.preventDefault();const n=Number($('deal-input').value);if(!Number.isInteger(n)||n<1||n>1000000){status('牌局编号不合法');return;}closeModal();startDeal(n);});
+  $('deal-input').focus();
+}
+function restart(){
+  openModal(`<div class="modal-head"><h2>重新开始 #${current.number}</h2><button data-close aria-label="关闭">×</button></div><p>这会清空本局的移动记录与计时，牌号仍保留在历史中。</p><div class="actions"><button id="confirm-restart" class="primary">确认重新开始</button><button data-close>取消</button></div>`);
+  $('confirm-restart').onclick=()=>{closeModal();startDeal(current.number,{fresh:true});};
+  $('modal').querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModal);
+}
+
+// Statistics are derived from existing completed-game records. No new tracking or server.
+function completedRecords(){
+  return store.records.filter(r=>r&&r.finishedAt&&Number.isFinite(Number(r.elapsed))&&Number(r.elapsed)>0)
+    .sort((a,b)=>{
+      const aTime=Number(new Date(a.finishedAt)),bTime=Number(new Date(b.finishedAt));
+      return (Number.isFinite(aTime)?aTime:0)-(Number.isFinite(bTime)?bTime:0);
+    });
+}
+function mean(list){return list.length?list.reduce((sum,v)=>sum+v,0)/list.length:null;}
+function median(list){
+  if(!list.length)return null;
+  const sorted=list.slice().sort((a,b)=>a-b),mid=Math.floor(sorted.length/2);
+  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+}
+function displayTime(value){return value===null?'—':clockText(Math.round(value));}
+function displayMoves(value){return value===null?'—':value.toFixed(1);}
+function statisticData(records){
+  const all=records.map(r=>Number(r.elapsed));
+  const recent10=records.slice(-10).map(r=>Number(r.elapsed));
+  const recent50=records.slice(-50).map(r=>Number(r.elapsed));
+  const moveCounts=records.map(r=>Number(r.moves?.length)).filter(v=>Number.isFinite(v)&&v>=0);
+  return [
+    ['已完成牌局',String(records.length)],
+    ['历史平均时长',displayTime(mean(all))],
+    ['完成时长中位数',displayTime(median(all))],
+    ['个人最快纪录',displayTime(all.length?Math.min(...all):null)],
+    ['最近10局平均',displayTime(mean(recent10))],
+    ['最近50局平均',displayTime(mean(recent50))],
+    ['最近10局最快 / 最慢',recent10.length?`${displayTime(Math.min(...recent10))} / ${displayTime(Math.max(...recent10))}`:'—'],
+    ['平均移动步数',displayMoves(mean(moveCounts))]
+  ];
+}
+function chartSVG(records,n){
+  if(!records.length)return '<div class="stats-empty">还没有已完成的牌局。<br>完成一局后，这里会显示用时变化。</div>';
+  if(records.length===1)return '<div class="stats-empty">已有1局完成记录。<br>再完成一局，就可以绘制趋势图。</div>';
+  const subset=records.slice(-n),values=subset.map(r=>Number(r.elapsed));
+  const globalAvgs=records.map((_,i)=>mean(records.slice(Math.max(0,i-9),i+1).map(r=>Number(r.elapsed))));
+  const averages=globalAvgs.slice(-n);
+  const width=650,height=252,loX=56,hiX=630,hiY=16,loY=215;
+  const minVal=Math.min(...values,...averages),maxVal=Math.max(...values,...averages);
+  const minAxis=Math.max(0,Math.floor((minVal-Math.max(20,(maxVal-minVal)*.16))/30)*30);
+  const maxAxis=Math.max(minAxis+60,Math.ceil((maxVal+Math.max(20,(maxVal-minVal)*.16))/30)*30);
+  const X=i=>loX+(subset.length===1?0:i*(hiX-loX)/(subset.length-1));
+  const Y=v=>loY-(v-minAxis)/(maxAxis-minAxis)*(loY-hiY);
+  const p=v=>Number(v.toFixed(2));
+  const pts=v=>v.map((value,i)=>`${p(X(i))},${p(Y(value))}`).join(' ');
+  let ticks='';
+  for(let t=0;t<=4;t++){
+    const val=minAxis+(maxAxis-minAxis)*t/4,y=p(Y(val));
+    ticks+=`<line x1="${loX}" y1="${y}" x2="${hiX}" y2="${y}" stroke="#416251" stroke-width="1" stroke-dasharray="3 5" opacity=".63"/>`;
+    ticks+=`<text x="${loX-10}" y="${y+4}" text-anchor="end" font-size="11" fill="#b8cfbf">${clockText(val)}</text>`;
+  }
+  const pointEls=subset.map((r,i)=>`<circle cx="${p(X(i))}" cy="${p(Y(values[i]))}" r="${subset.length>30?2.4:3.5}" fill="#e1eedc" stroke="#15362c" stroke-width="1.2"><title>#${r.number} · ${clockText(values[i])}</title></circle>`).join('');
+  const mid=Math.floor((subset.length-1)/2);
+  const labels=[0,mid,subset.length-1].filter((v,i,a)=>a.indexOf(v)===i).map(i=>`<text x="${p(X(i))}" y="236" text-anchor="${i===0?'start':i===subset.length-1?'end':'middle'}" font-size="11" fill="#b8cfbf">第${records.length-subset.length+i+1}局</text>`).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="最近${subset.length}局完成用时及10局滚动平均曲线">${ticks}<polyline points="${pts(values)}" fill="none" stroke="#e1eedc" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><polyline points="${pts(averages)}" fill="none" stroke="#d4c292" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>${pointEls}${labels}</svg>`;
+}
+function statistics(){
+  // The current storage schema keeps one record per deal number. A replay or restart
+  // does not add another attempt; statistics therefore describe saved completed deals.
+  const records=completedRecords();
+  const cells=statisticData(records).map(([title,value])=>`<div class="stats-cell"><div class="stats-key">${title}</div><div class="stats-value">${value}</div></div>`).join('');
+  openModal(`<div class="modal-head"><h2>历史统计</h2><button data-close aria-label="关闭">×</button></div><div class="stats-grid">${cells}</div><div class="stats-header"><h3>完成时间趋势</h3><div class="stats-range" aria-label="显示最近的完成牌局"><button data-range="10" aria-pressed="true">10局</button><button data-range="20" aria-pressed="false">20局</button><button data-range="50" aria-pressed="false">50局</button></div></div><div id="stats-chart" class="stats-chart"></div><div class="stats-legend"><span><i class="stats-swatch"></i>单局时长</span><span><i class="stats-swatch avg"></i>最近10局滚动平均</span></div><p class="stats-note">仅统计已经完成、具有有效用时的牌局。少于10或50局时按实际完成局数计算平均。数据只存于当前浏览器，不会上传。</p>`);
+  $('modal').classList.add('stats-modal');
+  const change=n=>{
+    $('stats-chart').innerHTML=chartSVG(records,n);
+    $('modal').querySelectorAll('[data-range]').forEach(btn=>btn.setAttribute('aria-pressed',String(Number(btn.dataset.range)===n)));
+  };
+  $('modal').querySelectorAll('[data-range]').forEach(btn=>btn.onclick=()=>change(Number(btn.dataset.range)));
+  change(10);
+}
+
+function history(){
+  const records=store.records.slice().sort((a,b)=>b.startedAt-a.startedAt);
+  const rows=records.length?records.slice(0,150).map((r,i)=>{
+    const done=!!r.finishedAt;
+    return `<div class="history-item"><div><strong>#${r.number}</strong><small>${new Date(r.startedAt).toLocaleString('zh-CN')} · ${done?'已完成':'未完成'} · ${r.cursor||0} 步 · ${clockText(r.elapsed)}</small></div><div class="actions"><button data-open="${r.number}">打开</button><button data-replay="${r.number}" ${r.moves.length?'':'disabled'}>回放</button></div></div>`;
+  }).join(''):'<p>还没有记录。</p>';
+  openModal(`<div class="modal-head"><h2>牌局历史 <span class="pill">${records.length} 局</span></h2><button data-close aria-label="关闭">×</button></div><p>记录保存在此浏览器中，不会上传。打开历史牌局不会重新计入新局。</p><div class="list-rows">${rows}</div><div class="actions" style="margin-top:16px"><button id="export-btn">导出备份 JSON</button><button id="import-btn">导入备份</button><button id="persist-btn">加强本地存储保护</button><input hidden id="import-file" type="file" accept="application/json,.json"></div><p class="smallprint">游戏会自动保存到本网站的浏览器存储（localStorage + IndexedDB 副本），不上传服务器，也不会跨设备同步。下载 JSON 后请另存到安全位置，例如 Google Drive；清除网站数据可能同时删除两份浏览器存档。一次显示最近150局，全部历史仍保留。</p>`);
+  $('modal').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{closeModal();startDeal(Number(b.dataset.open));});
+  $('modal').querySelectorAll('[data-replay]').forEach(b=>b.onclick=()=>{const r=findRecord(Number(b.dataset.replay));closeModal();showPersonalReplay(r);});
+  $('export-btn').onclick=()=>{
+    const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),records:store.records},null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='freecell-history-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  };
+  $('persist-btn').onclick=async()=>{
+    try{
+      if(!navigator.storage?.persist)throw Error('此浏览器不支持此功能');
+      const granted=await navigator.storage.persist();
+      status(granted?'已获得浏览器持久存储保护；仍建议导出 JSON 备份。':'浏览器暂未授予持久存储权限；自动存档仍可使用，请定期导出 JSON。');
+    }catch(err){status('无法启用持久存储：'+err.message);}
+  };
+  $('import-btn').onclick=()=>$('import-file').click();
+  $('import-file').onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    try{
+      if(file.size>8*1024*1024)throw Error('文件过大');
+      const data=JSON.parse(await file.text());if(data.version!==1||!Array.isArray(data.records))throw Error('不支持的备份格式');
+      let count=0;
+      for(const r of data.records){
+        if(!r||!Number.isInteger(r.number)||r.number<1||r.number>1000000||!Array.isArray(r.moves)||r.moves.length>10000)continue;
+        if(!findRecord(r.number)){store.records.push({...r,cursor:Math.min(Number(r.cursor)||0,r.moves.length)});count++;}
+      }
+      save();closeModal();status(`导入完成，新增 ${count} 局`);
+    }catch(err){status('导入失败：'+err.message);}
+  };
+}
+function showPersonalReplay(r){
+  try{
+    validateMoves(r);
+    const state=deal(r.number);autoHome(state,'safe');
+    const viewStates=[clone(state)],moveDescriptions=[],segments=[];
+    for(const action of r.moves){
+      const frames=[];
+      const result=doMove(state,action.from,action.to,action.count,'safe',frames);
+      if(!result)break;
+      moveDescriptions.push(result);segments.push(frames);viewStates.push(clone(state));
+    }
+    setViewer(r.number,{states:viewStates,moves:moveDescriptions,segments},'个人操作回放');
+  }catch(e){status('无法回放：'+e.message);}
+}
+// Reference solution blocks: group of 1000, licensed and hosted by macroxue/freecell.
+async function fetchReference(n){
+  if(Object.prototype.hasOwnProperty.call(BUNDLED_SOLUTIONS,n))return BUNDLED_SOLUTIONS[n];
+  const block=Math.ceil(n/1000);
+  const urls=[`https://raw.githubusercontent.com/macroxue/freecell/master/solutions/block.${block}`,`https://macroxue.github.io/freecell/solutions/block.${block}`];
+  let data=null;
+  for(const url of urls){
+    try{
+      const cache=globalThis.caches?await caches.open('freecell-references-v1'):null;
+      let response=cache?await cache.match(url):null;
+      if(!response){response=await fetch(url,{mode:'cors'});if(response.ok&&cache)await cache.put(url,response.clone());}
+      if(response?.ok){data=await response.text();break;}
+    }catch(err){console.warn('参考解法下载失败',url,err);}
+  }
+  if(!data)throw Error('没有获取到参考解法。请联网重试。');
+  const line=data.split(/\r?\n/).find(s=>s.startsWith(n+':'));
+  if(!line||!line.slice(String(n).length+1).trim())throw Error('这个编号没有可用的参考解法。');
+  return line.slice(String(n).length+1).trim();
+}
+async function solution(){
+  if(viewer)return;
+  status('正在加载并验证参考解法…');$('solve-btn').disabled=true;
+  const n=current.number;
+  try{
+    if(n===11982)throw Error('#11982 是已知无解的牌局。');
+    const code=await fetchReference(n);
+    const path=decodeSolution(n,code);
+    setViewer(n,path,'参考解法');
+  }catch(err){status('解法不可用：'+err.message);console.error(err);}
+  finally{$('solve-btn').disabled=false;}
+}
+function stepDescription(viewer){
+  if(viewer.step===0)return '初始牌局 · 轻点「下一步」查看第一次移动';
+  const action=viewer.data.moves[viewer.step-1];
+  const where=loc=>loc.type==='t'?`第${loc.i+1}列`:loc.type==='f'?`空当${loc.i+1}`:'收牌区';
+  const cards=action.cards?.length?action.cards.map(label).join(' ') :'';
+  return `${cards?cards+' · ':''}${where(action.from)} → ${where(action.to)}${action.auto?.length?' · 自动收牌 '+action.auto.length+' 张':''}`;
+}
+function setViewer(number,data,title){
+  closeSolution();cancelSequence();selected=null;
+  viewer={number,data,step:0,title};
+  const panel=document.createElement('div');panel.id='solution-dock';panel.className='solution-dock';
+  panel.innerHTML=`<div class="solution-top"><div><div class="solution-title">${title} · #${number}</div><div class="solution-caption">只回放初始牌局的路线，不修改你的游戏记录</div></div><div class="solution-progress" id="solution-progress"></div><button class="close" id="solution-close" aria-label="退出回放">×</button></div><div class="solution-controls"><button id="solution-first" title="回到开头">|◀</button><button id="solution-prev" title="上一步">◀</button><button class="primary" id="solution-play">▶ 播放</button><button id="solution-next" title="下一步">▶</button><button id="solution-last" title="跳到结尾">▶|</button></div><input id="solution-seek" aria-label="解法进度" type="range" min="0" max="${data.moves.length}" value="0"><div class="solution-step-info" id="solution-description"></div>`;
+  document.body.appendChild(panel);
+  $('solution-first').onclick=()=>{pauseViewer();setViewerStep(0);};
+  $('solution-prev').onclick=()=>{pauseViewer();setViewerStep(viewer.step-1);};
+  $('solution-next').onclick=()=>{pauseViewer();setViewerStep(viewer.step+1);};
+  $('solution-last').onclick=()=>{pauseViewer();setViewerStep(viewer.data.moves.length);};
+  $('solution-close').onclick=closeSolution;
+  $('solution-seek').oninput=e=>{pauseViewer();setViewerStep(Number(e.target.value));};
+  $('solution-play').onclick=()=>{
+    if(viewerPlaying){pauseViewer();return;}
+    if(viewer.step===viewer.data.moves.length)setViewerStep(0);
+    viewerPlaying=true;
+    $('solution-play').textContent='Ⅱ 暂停';
+    playViewerNext();
+  };
+  setViewerStep(0);
+}
+function playViewerNext(){
+  if(!viewerPlaying||!viewer)return;
+  if(viewer.step>=viewer.data.moves.length){pauseViewer();return;}
+  setViewerStep(viewer.step+1,()=>{
+    if(viewerPlaying) viewerTimer=setTimeout(playViewerNext,140);
+  });
+}
+function setViewerStep(n,done=null){
+  if(!viewer)return;
+  const before=viewer.data.states[viewer.step],previous=viewer.step;
+  cancelSequence(false);
+  viewer.step=Math.max(0,Math.min(viewer.data.moves.length,Math.round(n)));
+  const delta=viewer.step-previous;
+  if(delta===1){
+    const frames=viewer.data.segments?.[viewer.step-1];
+    if(frames?.length>1)playStages(before,frames,{done});
+    else{renderWithMotion(before,viewer.data.states[viewer.step]);if(done)viewerTimer=setTimeout(done,290);}
+  }else if(delta===-1){
+    const forward=viewer.data.segments?.[previous-1];
+    if(forward?.length>1){
+      const reverse=[...forward.slice(0,-1).reverse(),viewer.data.states[viewer.step]];
+      playStages(before,reverse,{done});
+    }else{renderWithMotion(before,viewer.data.states[viewer.step]);if(done)viewerTimer=setTimeout(done,290);}
+  }else{render();if(done)done();}
+  $('solution-progress').textContent=`${viewer.step} / ${viewer.data.moves.length}`;
+  $('solution-seek').value=viewer.step;
+  $('solution-description').textContent=stepDescription(viewer);
+}
+function pauseViewer(){
+  viewerPlaying=false;clearTimeout(viewerTimer);viewerTimer=null;
+  if($('solution-play'))$('solution-play').textContent='▶ 播放';
+}
+function closeSolution(){pauseViewer();cancelSequence();viewer=null;$('solution-dock')?.remove();if(current)render();}
+function help(){openModal(`<div class="modal-head"><h2>怎么玩</h2><button data-close aria-label="关闭">×</button></div><p><strong>目标：</strong>四种花色按 A → K 依次进入右上角基础牌堆。</p><p><strong>移动：</strong>轻点一张可移动的牌，程序会智能选择合法落点；按住纸牌并拖动，可由你指定目标列、空当或收牌区，拖动时目标位置会高亮。连续序列必须红黑交替且点数递减，并受空位数量限制。如果轻点时找不到自动落点，还可以再轻点目标位置。</p><p><strong>FreeCell：</strong>左上有4个临时空当；已有空列也可以作为中转，能移动的连续序列长度受空位限制。</p><p><strong>参考解法：</strong>点击「看解法」，查看该编号从初始局面开始的一条可获胜路线。它不会替你完成当前游戏，也不一定是最短解法。编号 #1 和 #617 的解法已内置，其他牌局首次查看解法需要联网。</p><p><strong>难度：</strong>Expert 指经典32,000局中最少需同时使用3或4个空当的6618局，不等于微软官方 Expert 分类。</p><p class="smallprint">难度数据：Theodore Pringle MIT；参考解法：macroxue/freecell GPL-3.0。网页版支持离线缓存与安装到主屏幕。历史只保存在此浏览器，请定期导出 JSON 备份。</p>`);}
+async function setup(){
+  $('new-btn').onclick=newExpert;$('pick-btn').onclick=manualDeal;$('restart-btn').onclick=restart;
+  $('undo-btn').onclick=()=>{if(current.cursor>0){cancelSequence();const before=states[current.cursor];current.cursor--;selected=null;save();renderWithMotion(before,states[current.cursor]);}};
+  $('redo-btn').onclick=()=>{if(current.cursor<current.moves.length){cancelSequence();const before=states[current.cursor];current.cursor++;selected=null;save();renderWithMotion(before,states[current.cursor]);}};
+  $('history-btn').onclick=history;$('stats-btn').onclick=statistics;$('solve-btn').onclick=solution;$('help-btn').onclick=help;
+  $('overlay').onclick=e=>{if(e.target===$('overlay'))closeModal();};
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'){if(viewer)closeSolution();else closeModal();}if(!viewer&&e.ctrlKey&&e.key==='z'){$('undo-btn').click();e.preventDefault();}});
+  function hitTarget(x,y){
+    const el=document.elementFromPoint(x,y)?.closest('.column,.slot');
+    if(!el)return null;
+    if(el.classList.contains('column'))return {type:'t',i:Number(el.dataset.col),el};
+    const parent=el.parentElement;
+    if(parent?.id!=='freecells'&&parent?.id!=='foundations')return null;
+    return {type:parent.id==='freecells'?'f':'h',i:Array.from(parent.children).indexOf(el),el};
+  }
+  function clearDropHighlight(d){if(d?.dropEl){d.dropEl.classList.remove('drop-target');d.dropEl=null;}}
+  function clearDrag(){if(dragStart){clearDropHighlight(dragStart);dragStart.ghost?.remove();document.querySelectorAll('.drag-source').forEach(el=>el.classList.remove('drag-source'));dragStart=null;}}
+  document.addEventListener('pointermove',e=>{
+    const d=dragStart;if(!d||d.pointer!==e.pointerId||viewer)return;
+    const dx=e.clientX-d.x,dy=e.clientY-d.y;
+    if(!d.active&&Math.hypot(dx,dy)<9)return;
+    if(!d.allowed){d.active=true;return;}
+    if(!d.ghost){
+      d.active=true;
+      const ghost=document.createElement('div');ghost.className='drag-ghost';
+      ghost.style.height=`calc(var(--cardH) + (var(--overlap) * ${d.cards.length-1}))`;
+      for(let j=0;j<d.cards.length;j++)ghost.appendChild(cardDiv(d.cards[j],{top:j,order:j+1}));
+      document.body.appendChild(ghost);d.ghost=ghost;
+      for(const c of d.cards)document.querySelector(`#tableau .card[data-card="${c}"],#freecells .card[data-card="${c}"]`)?.classList.add('drag-source');
+    }
+    d.ghost.style.left=(d.rect.left+dx)+'px';d.ghost.style.top=(d.rect.top+dy)+'px';
+    clearDropHighlight(d);
+    const target=hitTarget(e.clientX,e.clientY);
+    if(target&&canMove(states[current.cursor],{type:d.source.type,i:d.source.i},target,d.cards.length)){
+      target.el.classList.add('drop-target');d.dropEl=target.el;
+    }
+    if(e.cancelable)e.preventDefault();
+  },{passive:false});
+  document.addEventListener('pointerup',e=>{
+    const d=dragStart;if(!d||d.pointer!==e.pointerId)return;
+    // A plain tap is handled by the click listener, not the drag handler.
+    if(!d.active){clearDrag();return;}
+    suppressClickUntil=Date.now()+450;
+    const target=hitTarget(e.clientX,e.clientY);
+    const from={type:d.source.type,i:d.source.i};
+    const dragRects=new Map();
+    if(d.ghost)d.ghost.querySelectorAll('.card[data-card]').forEach(el=>dragRects.set(Number(el.dataset.card),el.getBoundingClientRect()));
+    const moved=d.allowed&&target&&applyPlayer(from,{type:target.type,i:target.i},d.cards.length,dragRects);
+    clearDrag();
+    if(!moved)status(d.allowed?'不能放在这里：请选择符合规则的目标位置。':'这组牌还不是可以一起移动的连续序列。');
+  });
+  document.addEventListener('pointercancel',()=>{suppressClickUntil=Date.now()+350;clearDrag();});
+  window.addEventListener('blur',clearDrag);
+  await loadSaved();
+  if(store.active&&findRecord(store.active))startDeal(store.active);
+  else startDeal(1);
+  loadExpert().then(readyExpert).catch(e=>{console.warn(e);status('Expert 数据暂不可用，联网后即可加载。');});
+  setInterval(()=>{
+    const now=Date.now(),diff=Math.max(0,now-lastTick);lastTick=now;
+    if(current&&!viewer&&!current.finishedAt&&diff<10000){current.elapsed=(current.elapsed||0)+diff/1000; $('clock').textContent=clockText(current.elapsed);if(Math.floor(now/5000)!==Math.floor((now-diff)/5000))save();}
+  },1000);
+  if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
+    navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(e=>console.warn('离线缓存不可用',e));
+  }
+}
+setup().catch(err=>{console.error('初始化失败',err);status('无法恢复本地存档：'+err.message);});
+
+})();
+</script>
+</body>
+</html>
