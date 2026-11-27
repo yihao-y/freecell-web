@@ -1,6 +1,6 @@
 // Local-only shell cache. Never cache game records here.
-const CACHE_VERSION='freecell-web-initial';
-const SHELL=['./','./index.html','./manifest.webmanifest','./assets/icon.svg','./assets/icon-192.png','./assets/icon-512.png'];
+const CACHE_VERSION='freecell-web-netcell-v1';
+const SHELL=['./','./index.html','./netcell-deal.js','./manifest.webmanifest','./assets/icon.svg','./assets/icon-192.png','./assets/icon-512.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE_VERSION).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
 });
