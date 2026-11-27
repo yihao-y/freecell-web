@@ -95,6 +95,7 @@ body:has(.solution-dock) #toast{bottom:155px}
 .stats-cell:nth-child(7) .stats-value{font-size:clamp(13px,3.8vw,18px)}
 .stats-empty{text-align:center;padding:40px 14px;color:#bdd3c3;font-size:13px;line-height:1.8}
 @media(max-width:650px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.stats-cell{padding:10px;min-height:78px}.stats-value{font-size:21px}.stats-range button{padding:6px 9px}.stats-modal{padding:16px}.bottom-bar button{font-size:10px}.bottom-icon{font-size:23px}}
+.deal-switch{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);padding:1px 2px}.deal-switch[hidden]{display:none}.deal-switch select{min-height:35px;border-radius:9px;background:#204838;color:var(--text);border:1px solid var(--edge);padding:5px 9px}.net-stats{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0 18px}.net-stats th,.net-stats td{border-bottom:1px solid var(--edge);padding:7px 5px;text-align:right}.net-stats th:first-child,.net-stats td:first-child{text-align:left}
 </style>
   <title>FreeCell Web</title>
 </head>
@@ -108,6 +109,8 @@ body:has(.solution-dock) #toast{bottom:155px}
     <button class="primary" id="new-btn">＋ Expert 新局</button>
     <button id="pick-btn">指定牌号</button>
     <button id="restart-btn">重新开始</button>
+    <label class="deal-switch">牌库 <select id="source-select" aria-label="发牌来源"><option value="ms">Microsoft</option><option value="net">NetCELL</option></select></label>
+    <label class="deal-switch" id="net-level-control" hidden>难度 <select id="net-difficulty" aria-label="NetCELL 难度"><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option><option value="11">11</option><option value="12">12</option></select></label>
   </nav>
   <main class="table-wrap">
     <div class="top-board">
@@ -128,6 +131,7 @@ body:has(.solution-dock) #toast{bottom:155px}
 </div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="overlay" class="overlay" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+  <script src="./netcell-deal.js"></script>
   <script>
 (()=>{
 "use strict";
@@ -161,6 +165,35 @@ function deal(number){
   deck.forEach((c,i)=>s.columns[i%8].push(c));
   return s;
 }
+
+const NET_PREF_KEY='freecell-deck-prefs-v1';
+let preferredSource='ms',preferredDifficulty=10;
+function sourceOf(r){return r?.source==='net'?'net':'ms';}
+function difficultyOf(r){return sourceOf(r)==='net'&&Number.isInteger(r?.difficulty)?r.difficulty:10;}
+function recordKey(r){return sourceOf(r)==='net'?'net:'+difficultyOf(r)+':'+r.number:'ms:'+r.number;}
+function recordLabel(r){return sourceOf(r)==='net'?'NetCELL #'+r.number+' · 难度'+difficultyOf(r):'微软 #'+r.number;}
+function validRecord(r){
+  if(!r||!Number.isInteger(r.number)||!Array.isArray(r.moves))return false;
+  if(sourceOf(r)==='net')return r.number>=0&&r.number<=32767&&Number.isInteger(r.difficulty)&&r.difficulty>=5&&r.difficulty<=12;
+  return (r.source===undefined||r.source==='ms')&&r.number>=1&&r.number<=1000000;
+}
+function dealForRecord(r){return sourceOf(r)==='net'?NetCellDeals.deal(r.number,difficultyOf(r)):deal(r.number);}
+function syncDeckPicker(){
+  $('source-select').value=preferredSource;
+  $('net-difficulty').value=String(preferredDifficulty);
+  $('net-level-control').hidden=preferredSource!=='net';
+  $('new-btn').textContent=preferredSource==='net'?'＋ NetCELL 新局':'＋ Expert 新局';
+}
+function persistDeckPrefs(){
+  try{localStorage.setItem(NET_PREF_KEY,JSON.stringify({source:preferredSource,difficulty:preferredDifficulty}));}
+  catch(_e){}
+}
+function setDeckPrefs(source,difficulty=preferredDifficulty){
+  preferredSource=source==='net'?'net':'ms';
+  preferredDifficulty=Number.isInteger(difficulty)&&difficulty>=5&&difficulty<=12?difficulty:10;
+  syncDeckPicker();persistDeckPrefs();
+}
+
 const canStack=(c,d)=>c!==null&&d!==null&&rank(c)+1===rank(d)&&red(c)!==red(d);
 const canHome=(s,c)=>c!==null&&s.found[suit(c)]===rank(c);
 function sortedTail(col){
@@ -549,7 +582,7 @@ async function loadSaved(){
   // Prefer the newest valid snapshot. Legacy v2.3 records have no updatedAt.
   const data=good(archived)&&(!good(local)||Number(archived.updatedAt||0)>Number(local.updatedAt||0))?archived:local;
   if(good(data)){
-    store.records=data.records.filter(r=>Number.isInteger(r.number)&&r.number>0&&r.number<=1000000&&Array.isArray(r.moves));
+    store.records=data.records.filter(validRecord);
     store.active=data.active;
     store.updatedAt=Number(data.updatedAt)||0;
     // Migrate in either direction without changing the original storage key.
@@ -563,9 +596,13 @@ function save(){
   pendingArchive=json;
   void flushArchive();
 }
-function findRecord(n){return store.records.find(r=>r.number===n);}
+function findRecord(n,source='ms',difficulty=10){return store.records.find(r=>r.number===n&&sourceOf(r)===source&&(source!=='net'||difficultyOf(r)===difficulty));}
+function findRecordByKey(key){
+  if(typeof key==='number')return findRecord(key,'ms',10); // Legacy numeric active ID
+  return store.records.find(r=>recordKey(r)===key);
+}
 function validateMoves(r){
-  const st=deal(r.number);autoHome(st,'safe');
+  const st=dealForRecord(r);autoHome(st,'safe');
   const out=[clone(st)];const valid=[];
   for(const action of r.moves){
     if(!action||!action.from||!action.to)break;
@@ -576,15 +613,23 @@ function validateMoves(r){
   r.moves=valid;r.cursor=Math.max(0,Math.min(valid.length,Number(r.cursor)||0));
   return out;
 }
-function startDeal(number,{fresh=false}={}){
-  if(!Number.isInteger(number)||number<1||number>1000000){status('请输入 1–1,000,000 之间的牌局编号。');return;}
+function startDeal(number,{fresh=false,source='ms',difficulty=10}={}){
+  if(source!=='net'&&source!=='ms'){status('发牌来源不合法');return;}
+  if(!Number.isInteger(number)||number<(source==='net'?0:1)||number>(source==='net'?32767:1000000)){
+    status(source==='net'?'请输入 0–32767 之间的 NetCELL 牌号。':'请输入 1–1,000,000 之间的微软牌号。');return;
+  }
+  if(source==='net'&&(!Number.isInteger(difficulty)||difficulty<5||difficulty>12)){status('难度必须在5–12之间');return;}
   closeSolution();cancelSequence();
-  let rec=findRecord(number);
+  let rec=findRecord(number,source,difficulty);
   if(!rec||fresh){
     if(rec&&fresh){rec.moves=[];rec.cursor=0;rec.elapsed=0;rec.finishedAt=null;rec.startedAt=Date.now();}
-    else {rec={number,startedAt:Date.now(),finishedAt:null,elapsed:0,moves:[],cursor:0};store.records.unshift(rec);}
+    else {
+      rec={number,...(source==='net'?{source:'net',difficulty}:{}) ,startedAt:Date.now(),finishedAt:null,elapsed:0,moves:[],cursor:0};
+      store.records.unshift(rec);
+    }
   }
-  store.active=number;current=rec;
+  store.active=recordKey(rec);current=rec;
+  setDeckPrefs(source,source==='net'?difficulty:preferredDifficulty);
   states=validateMoves(rec);selected=null;save();render();
 }
 function currentState(){return animationState||(viewer?viewer.data.states[viewer.step]:states[current.cursor]);}
@@ -598,7 +643,7 @@ function applyPlayer(from,to,count=1,animationOrigins=null){
   if(current.cursor<current.moves.length){current.moves=current.moves.slice(0,current.cursor);states=states.slice(0,current.cursor+1);}
   current.moves.push({from,to,count});current.cursor++;
   states.push(base);selected=null;
-  if(complete(base)&&!current.finishedAt){current.finishedAt=Date.now();setTimeout(()=>status(`完成 #${current.number}！用时 ${clockText(current.elapsed)}，${current.cursor} 步。`),60);}
+  if(complete(base)&&!current.finishedAt){current.finishedAt=Date.now();setTimeout(()=>status(`完成 ${recordLabel(current)}！用时 ${clockText(current.elapsed)}，${current.cursor} 步。`),60);}
   save();
   if(move.auto.length)playStages(states[current.cursor-1],frames,{origins:animationOrigins});
   else renderWithMotion(states[current.cursor-1],base,animationOrigins);
@@ -682,8 +727,8 @@ function cardDiv(card,props={}){
 function render(){
   if(!current)return;
   const s=currentState(),isReplay=!!viewer;
-  $('deal-label').textContent='#'+(isReplay?viewer.number:current.number);
-  $('level-label').textContent=isReplay?'解法回放':(isExpert(current.number)?'Expert 候选':'自由牌局');
+  $('deal-label').textContent=isReplay?viewer.display:recordLabel(current);
+  $('level-label').textContent=isReplay?'解法回放':(sourceOf(current)==='net'?'NetCELL · D'+difficultyOf(current):(isExpert(current.number)?'Expert 候选':'自由牌局'));
   $('clock').textContent=clockText(current.elapsed||0);
   $('move-count').textContent=(isReplay?viewer.step:current.cursor)+' 步'+(isReplay?` / ${viewer.data.moves.length}`:'');
   $('home-count').textContent=s.found.reduce((a,b)=>a+b,0)+' / 52';
@@ -693,6 +738,8 @@ function render(){
   $('restart-btn').disabled=isReplay;
   $('pick-btn').disabled=isReplay;
   $('new-btn').disabled=isReplay;
+  $('source-select').disabled=isReplay;
+  $('net-difficulty').disabled=isReplay;
   $('history-btn').disabled=isReplay;
   $('stats-btn').disabled=isReplay;
   $('solve-btn').disabled=isReplay;
@@ -734,24 +781,42 @@ function openModal(html){$('modal').classList.remove('stats-modal');$('modal').i
 function closeModal(){$('overlay').hidden=true;$('modal').replaceChildren();}
 function newExpert(){
   if(!expertPool){status('正在载入 Expert 数据，请保持联网。');loadExpert().then(readyExpert).then(newExpert).catch(e=>status(e.message));return;}
-  const seen=new Set(store.records.map(x=>x.number));
+  const seen=new Set(store.records.filter(x=>sourceOf(x)==='ms').map(x=>x.number));
   const available=expertPool.filter(n=>!seen.has(n));
   if(!available.length){status('全部 6,618 个 Expert 候选牌局都已玩过。请用指定牌号重玩。');return;}
   const bytes=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)crypto.getRandomValues(bytes);else bytes[0]=Math.floor(Math.random()*2**32);
   startDeal(available[bytes[0]%available.length]);
 }
+function newRandomDeal(){
+  if(preferredSource==='ms'){newExpert();return;}
+  const difficulty=preferredDifficulty;
+  const seen=new Set(store.records.filter(r=>sourceOf(r)==='net'&&difficultyOf(r)===difficulty).map(r=>r.number));
+  if(seen.size>=32768){status('该难度所有32,768局都已保存过，可以指定编号重玩。');return;}
+  const bytes=new Uint32Array(1);
+  if(globalThis.crypto?.getRandomValues)crypto.getRandomValues(bytes);
+  else bytes[0]=Math.floor(Math.random()*2**32);
+  let seed=bytes[0]%32768;
+  while(seen.has(seed))seed=(seed+1)%32768;
+  startDeal(seed,{source:'net',difficulty});
+}
 function readyExpert(bits){expertPool=expertNumbers(bits);render();}
 function manualDeal(){
-  openModal(`<div class="modal-head"><h2>指定牌局</h2><button data-close aria-label="关闭">×</button></div><p>输入微软经典 FreeCell 编号（1–1,000,000）。原来玩过的牌局会继续已有进度。</p><form class="inline-form" id="deal-form"><input aria-label="牌局编号" id="deal-input" type="number" min="1" max="1000000" required placeholder="例如 617"><button type="submit" class="primary">打开</button></form><p class="smallprint">经典 #11982 是无解牌局，Expert 随机池不会选它；手动输入仍可研究。</p>`);
-  $('deal-form').addEventListener('submit',e=>{e.preventDefault();const n=Number($('deal-input').value);if(!Number.isInteger(n)||n<1||n>1000000){status('牌局编号不合法');return;}closeModal();startDeal(n);});
+  const net=preferredSource==='net',diff=preferredDifficulty;
+  const choices=net?'<label class="deal-switch">难度 <select id="deal-diff-input">'+Array.from({length:8},(_,i)=>'<option value="'+(i+5)+'"'+(i+5===diff?' selected':'')+'>'+(i+5)+'</option>').join('')+'</select></label>':'';
+  openModal(`<div class="modal-head"><h2>指定${net?'NetCELL':'微软'}牌局</h2><button data-close aria-label="关闭">×</button></div><p>${net?'选择 NetCELL 编号（0–32767）和难度（5–12）。同编号、不同难度分别存档。':'输入微软 FreeCell 编号（1–1,000,000）。原来的微软牌局记录保持不变。'}</p><form class="inline-form" id="deal-form"><input aria-label="牌局编号" id="deal-input" type="number" min="${net?0:1}" max="${net?32767:1000000}" required placeholder="${net?24680:617}">${choices}<button type="submit" class="primary">打开</button></form>${net?'<p class="smallprint">NetCELL 发牌由本地逆向算法生成，不向 Freecell.net 请求牌面；ELO 尚未接入。</p>':'<p class="smallprint">经典 #11982 是无解牌局，Expert 随机池不会选它。</p>'}`);
+  $('deal-form').addEventListener('submit',e=>{
+    e.preventDefault();
+    const n=Number($('deal-input').value),d=net?Number($('deal-diff-input').value):10;
+    if(!Number.isInteger(n)||n<(net?0:1)||n>(net?32767:1000000)){status('牌局编号不合法');return;}
+    closeModal();startDeal(n,{source:net?'net':'ms',difficulty:d});
+  });
   $('deal-input').focus();
 }
 function restart(){
-  openModal(`<div class="modal-head"><h2>重新开始 #${current.number}</h2><button data-close aria-label="关闭">×</button></div><p>这会清空本局的移动记录与计时，牌号仍保留在历史中。</p><div class="actions"><button id="confirm-restart" class="primary">确认重新开始</button><button data-close>取消</button></div>`);
-  $('confirm-restart').onclick=()=>{closeModal();startDeal(current.number,{fresh:true});};
+  openModal(`<div class="modal-head"><h2>重新开始 ${recordLabel(current)}</h2><button data-close aria-label="关闭">×</button></div><p>这会清空本局的移动记录与计时，其他来源或难度的同编号牌局不受影响。</p><div class="actions"><button id="confirm-restart" class="primary">确认重新开始</button><button data-close>取消</button></div>`);
+  $('confirm-restart').onclick=()=>{closeModal();startDeal(current.number,{fresh:true,source:sourceOf(current),difficulty:difficultyOf(current)});};
   $('modal').querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModal);
 }
-
 // Statistics are derived from existing completed-game records. No new tracking or server.
 function completedRecords(){
   return store.records.filter(r=>r&&r.finishedAt&&Number.isFinite(Number(r.elapsed))&&Number(r.elapsed)>0)
@@ -804,7 +869,7 @@ function chartSVG(records,n){
     ticks+=`<line x1="${loX}" y1="${y}" x2="${hiX}" y2="${y}" stroke="#416251" stroke-width="1" stroke-dasharray="3 5" opacity=".63"/>`;
     ticks+=`<text x="${loX-10}" y="${y+4}" text-anchor="end" font-size="11" fill="#b8cfbf">${clockText(val)}</text>`;
   }
-  const pointEls=subset.map((r,i)=>`<circle cx="${p(X(i))}" cy="${p(Y(values[i]))}" r="${subset.length>30?2.4:3.5}" fill="#e1eedc" stroke="#15362c" stroke-width="1.2"><title>#${r.number} · ${clockText(values[i])}</title></circle>`).join('');
+  const pointEls=subset.map((r,i)=>`<circle cx="${p(X(i))}" cy="${p(Y(values[i]))}" r="${subset.length>30?2.4:3.5}" fill="#e1eedc" stroke="#15362c" stroke-width="1.2"><title>${recordLabel(r)} · ${clockText(values[i])}</title></circle>`).join('');
   const mid=Math.floor((subset.length-1)/2);
   const labels=[0,mid,subset.length-1].filter((v,i,a)=>a.indexOf(v)===i).map(i=>`<text x="${p(X(i))}" y="236" text-anchor="${i===0?'start':i===subset.length-1?'end':'middle'}" font-size="11" fill="#b8cfbf">第${records.length-subset.length+i+1}局</text>`).join('');
   return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="最近${subset.length}局完成用时及10局滚动平均曲线">${ticks}<polyline points="${pts(values)}" fill="none" stroke="#e1eedc" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><polyline points="${pts(averages)}" fill="none" stroke="#d4c292" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>${pointEls}${labels}</svg>`;
