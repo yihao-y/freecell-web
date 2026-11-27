@@ -110,7 +110,7 @@ body:has(.solution-dock) #toast{bottom:155px}
     <button id="pick-btn">指定牌号</button>
     <button id="restart-btn">重新开始</button>
     <label class="deal-switch">牌库 <select id="source-select" aria-label="发牌来源"><option value="ms">Microsoft</option><option value="net">NetCELL</option></select></label>
-    <label class="deal-switch" id="net-level-control" hidden>难度 <select id="net-difficulty" aria-label="NetCELL 难度"><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option><option value="11">11</option><option value="12">12</option></select></label>
+    <label class="deal-switch" id="net-level-control" hidden>难度 <select id="net-difficulty" aria-label="NetCELL 难度"><option value="random">随机</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option><option value="11">11</option><option value="12">12</option></select></label>
   </nav>
   <main class="table-wrap">
     <div class="top-board">
@@ -190,7 +190,7 @@ function persistDeckPrefs(){
 }
 function setDeckPrefs(source,difficulty=preferredDifficulty){
   preferredSource=source==='net'?'net':'ms';
-  preferredDifficulty=Number.isInteger(difficulty)&&difficulty>=5&&difficulty<=12?difficulty:10;
+  preferredDifficulty=difficulty==='random'?'random':(Number.isInteger(difficulty)&&difficulty>=5&&difficulty<=12?difficulty:10);
   syncDeckPicker();persistDeckPrefs();
 }
 
@@ -629,7 +629,7 @@ function startDeal(number,{fresh=false,source='ms',difficulty=10}={}){
     }
   }
   store.active=recordKey(rec);current=rec;
-  setDeckPrefs(source,source==='net'?difficulty:preferredDifficulty);
+  setDeckPrefs(source,source==='net'&&preferredDifficulty!=='random'?difficulty:preferredDifficulty);
   states=validateMoves(rec);selected=null;save();render();
 }
 function currentState(){return animationState||(viewer?viewer.data.states[viewer.step]:states[current.cursor]);}
@@ -787,27 +787,39 @@ function newExpert(){
   const bytes=new Uint32Array(1);if(globalThis.crypto?.getRandomValues)crypto.getRandomValues(bytes);else bytes[0]=Math.floor(Math.random()*2**32);
   startDeal(available[bytes[0]%available.length]);
 }
-function newRandomDeal(){
-  if(preferredSource==='ms'){newExpert();return;}
-  const difficulty=preferredDifficulty;
-  const seen=new Set(store.records.filter(r=>sourceOf(r)==='net'&&difficultyOf(r)===difficulty).map(r=>r.number));
-  if(seen.size>=32768){status('该难度所有32,768局都已保存过，可以指定编号重玩。');return;}
+function randomIndex(count){
   const bytes=new Uint32Array(1);
   if(globalThis.crypto?.getRandomValues)crypto.getRandomValues(bytes);
   else bytes[0]=Math.floor(Math.random()*2**32);
-  let seed=bytes[0]%32768;
+  return bytes[0]%count;
+}
+function chooseNetDifficulty(){return 5+randomIndex(8);}
+function newRandomDeal(){
+  if(preferredSource==='ms'){newExpert();return;}
+  // Skip exhausted difficulties, while drawing uniformly from those still available.
+  const counts=new Array(13).fill(0);
+  for(const r of store.records)if(sourceOf(r)==='net')counts[difficultyOf(r)]++;
+  const levels=preferredDifficulty==='random'
+    ?[5,6,7,8,9,10,11,12].filter(d=>counts[d]<32768)
+    :[preferredDifficulty].filter(d=>counts[d]<32768);
+  if(!levels.length){status('所选难度的牌局都已保存过，可以指定编号重玩。');return;}
+  const difficulty=levels[randomIndex(levels.length)];
+  const seen=new Set(store.records.filter(r=>sourceOf(r)==='net'&&difficultyOf(r)===difficulty).map(r=>r.number));
+  let seed=randomIndex(32768);
   while(seen.has(seed))seed=(seed+1)%32768;
   startDeal(seed,{source:'net',difficulty});
 }
 function readyExpert(bits){expertPool=expertNumbers(bits);render();}
 function manualDeal(){
   const net=preferredSource==='net',diff=preferredDifficulty;
-  const choices=net?'<label class="deal-switch">难度 <select id="deal-diff-input">'+Array.from({length:8},(_,i)=>'<option value="'+(i+5)+'"'+(i+5===diff?' selected':'')+'>'+(i+5)+'</option>').join('')+'</select></label>':'';
-  openModal(`<div class="modal-head"><h2>指定${net?'NetCELL':'微软'}牌局</h2><button data-close aria-label="关闭">×</button></div><p>${net?'选择 NetCELL 编号（0–32767）和难度（5–12）。同编号、不同难度分别存档。':'输入微软 FreeCell 编号（1–1,000,000）。原来的微软牌局记录保持不变。'}</p><form class="inline-form" id="deal-form"><input aria-label="牌局编号" id="deal-input" type="number" min="${net?0:1}" max="${net?32767:1000000}" required placeholder="${net?24680:617}">${choices}<button type="submit" class="primary">打开</button></form>${net?'<p class="smallprint">NetCELL 发牌由本地逆向算法生成，不向 Freecell.net 请求牌面；ELO 尚未接入。</p>':'<p class="smallprint">经典 #11982 是无解牌局，Expert 随机池不会选它。</p>'}`);
+  const choices=net?'<label class="deal-switch">难度 <select id="deal-diff-input"><option value="random"'+(diff==='random'?' selected':'')+'>随机</option>'+Array.from({length:8},(_,i)=>'<option value="'+(i+5)+'"'+(i+5===diff?' selected':'')+'>'+(i+5)+'</option>').join('')+'</select></label>':'';
+  openModal(`<div class="modal-head"><h2>指定${net?'NetCELL':'微软'}牌局</h2><button data-close aria-label="关闭">×</button></div><p>${net?'选择 NetCELL 编号（0–32767）和难度（5–12或随机）。随机会在每次打开时抽取一个难度，历史重开仍保留原难度。':'输入微软 FreeCell 编号（1–1,000,000）。原来的微软牌局记录保持不变。'}</p><form class="inline-form" id="deal-form"><input aria-label="牌局编号" id="deal-input" type="number" min="${net?0:1}" max="${net?32767:1000000}" required placeholder="${net?24680:617}">${choices}<button type="submit" class="primary">打开</button></form>${net?'<p class="smallprint">NetCELL 发牌由本地逆向算法生成，不向 Freecell.net 请求牌面；ELO 尚未接入。</p>':'<p class="smallprint">经典 #11982 是无解牌局，Expert 随机池不会选它。</p>'}`);
   $('deal-form').addEventListener('submit',e=>{
     e.preventDefault();
-    const n=Number($('deal-input').value),d=net?Number($('deal-diff-input').value):10;
+    const n=Number($('deal-input').value),selectedDifficulty=net?$('deal-diff-input').value:'10';
+    const d=selectedDifficulty==='random'?chooseNetDifficulty():Number(selectedDifficulty);
     if(!Number.isInteger(n)||n<(net?0:1)||n>(net?32767:1000000)){status('牌局编号不合法');return;}
+    if(net)setDeckPrefs('net',selectedDifficulty==='random'?'random':d);
     closeModal();startDeal(n,{source:net?'net':'ms',difficulty:d});
   });
   $('deal-input').focus();
@@ -1056,11 +1068,15 @@ function pauseViewer(){
   if($('solution-play'))$('solution-play').textContent='▶ 播放';
 }
 function closeSolution(){pauseViewer();cancelSequence();viewer=null;$('solution-dock')?.remove();if(current)render();}
-function help(){openModal(`<div class="modal-head"><h2>怎么玩</h2><button data-close aria-label="关闭">×</button></div><p><strong>目标：</strong>四种花色按 A → K 依次进入右上角基础牌堆。</p><p><strong>移动：</strong>轻点一张可移动的牌，程序会智能选择合法落点；按住纸牌并拖动，可由你指定目标列、空当或收牌区，拖动时目标位置会高亮。连续序列必须红黑交替且点数递减，并受空位数量限制。如果轻点时找不到自动落点，还可以再轻点目标位置。</p><p><strong>FreeCell：</strong>左上有4个临时空当；已有空列也可以作为中转，能移动的连续序列长度受空位限制。</p><p><strong>参考解法：</strong>微软牌局可点击「看解法」，查看从初始局面开始的一条可获胜路线。NetCELL 目前不提供对应的参考解法。它不会替你完成当前游戏，也不一定是最短解法。编号 #1 和 #617 的解法已内置，其他牌局首次查看解法需要联网。</p><p><strong>难度：</strong>Microsoft Expert 指经典32,000局中最少需同时使用3或4个空当的6618局。NetCELL 难度5–12是另一套发牌分布等级，并不是牌局 ELO；高难度牌面不保证可解。切换发牌源只影响下一局，不会改变正在玩的牌。</p><p class="smallprint">难度数据：Theodore Pringle MIT；参考解法：macroxue/freecell GPL-3.0。网页版支持离线缓存与安装到主屏幕。历史只保存在此浏览器，请定期导出 JSON 备份。</p>`);}
+function help(){openModal(`<div class="modal-head"><h2>怎么玩</h2><button data-close aria-label="关闭">×</button></div><p><strong>目标：</strong>四种花色按 A → K 依次进入右上角基础牌堆。</p><p><strong>移动：</strong>轻点一张可移动的牌，程序会智能选择合法落点；按住纸牌并拖动，可由你指定目标列、空当或收牌区，拖动时目标位置会高亮。连续序列必须红黑交替且点数递减，并受空位数量限制。如果轻点时找不到自动落点，还可以再轻点目标位置。</p><p><strong>FreeCell：</strong>左上有4个临时空当；已有空列也可以作为中转，能移动的连续序列长度受空位限制。</p><p><strong>参考解法：</strong>微软牌局可点击「看解法」，查看从初始局面开始的一条可获胜路线。NetCELL 目前不提供对应的参考解法。它不会替你完成当前游戏，也不一定是最短解法。编号 #1 和 #617 的解法已内置，其他牌局首次查看解法需要联网。</p><p><strong>难度：</strong>Microsoft Expert 指经典32,000局中最少需同时使用3或4个空当的6618局。NetCELL 难度5–12可以指定或随机选取（随机时8个等级等概率）；实际抽取的难度会记录到存档。这是另一套发牌分布等级，并不是牌局 ELO；高难度牌面不保证可解。切换发牌源只影响下一局，不会改变正在玩的牌。</p><p class="smallprint">难度数据：Theodore Pringle MIT；参考解法：macroxue/freecell GPL-3.0。网页版支持离线缓存与安装到主屏幕。历史只保存在此浏览器，请定期导出 JSON 备份。</p>`);}
 async function setup(){
   $('new-btn').onclick=newRandomDeal;$('pick-btn').onclick=manualDeal;$('restart-btn').onclick=restart;
   $('source-select').onchange=e=>{setDeckPrefs(e.target.value);status('牌库选择已更新。点击「新局」或「指定牌号」开始新牌局。');};
-  $('net-difficulty').onchange=e=>{setDeckPrefs('net',Number(e.target.value));status('难度选择已更新；下一局将使用该难度。');};
+  $('net-difficulty').onchange=e=>{
+    const choice=e.target.value;
+    setDeckPrefs('net',choice==='random'?'random':Number(choice));
+    status(choice==='random'?'已启用随机难度：新局从5–12中随机选择。':'难度选择已更新；下一局将使用该难度。');
+  };
   $('undo-btn').onclick=()=>{if(current.cursor>0){cancelSequence();const before=states[current.cursor];current.cursor--;selected=null;save();renderWithMotion(before,states[current.cursor]);}};
   $('redo-btn').onclick=()=>{if(current.cursor<current.moves.length){cancelSequence();const before=states[current.cursor];current.cursor++;selected=null;save();renderWithMotion(before,states[current.cursor]);}};
   $('history-btn').onclick=history;$('stats-btn').onclick=statistics;$('solve-btn').onclick=solution;$('help-btn').onclick=help;

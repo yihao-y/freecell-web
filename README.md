@@ -8,7 +8,7 @@ Play online (after GitHub Pages is enabled): https://yihao-y.github.io/freecell-
 
 - Play by mouse or touch; smart tap moves, drag moves and undo/redo
 - Microsoft numbered FreeCell deals and its optional Expert selection
-- NetCELL-compatible 8×4 deals: #0–32767 and difficulty 5–12, generated entirely locally
+- NetCELL-compatible 8×4 deals: #0–32767 and difficulty 5–12 (or choose Random for an equally likely level each new deal), generated entirely locally
 - Distinct saved histories for Microsoft and each NetCELL difficulty; grouped NetCELL completion statistics
 - Reference solution replay for supported deals
 - Finished-game history, time statistics and trend charts
@@ -17,7 +17,7 @@ Play online (after GitHub Pages is enabled): https://yihao-y.github.io/freecell-
 
 ## Saving and backups
 
-A legacy record without a `source` field remains a Microsoft deal; switching to NetCELL never overwrites the same Microsoft deal number. NetCELL saves are keyed by both the number and difficulty. The original localStorage and IndexedDB identifiers are retained, so existing saves remain readable.
+A legacy record without a `source` field remains a Microsoft deal; switching to NetCELL never overwrites the same Microsoft deal number. NetCELL saves are keyed by both the number and actual difficulty. Random difficulty is a selection preference, not a saved game identity; restoring a deal or replay never redraws its difficulty. The original localStorage and IndexedDB identifiers are retained, so existing saves remain readable.
 
 Game records stay in your browser under the same website origin; this site has no account and no remote database. It stores them in localStorage (existing key `freecell-practice-v1`) with an IndexedDB snapshot. Neither protects against clearing site data or losing the device.
 
