@@ -819,6 +819,7 @@ function manualDeal(){
     const n=Number($('deal-input').value),selectedDifficulty=net?$('deal-diff-input').value:'10';
     const d=selectedDifficulty==='random'?chooseNetDifficulty():Number(selectedDifficulty);
     if(!Number.isInteger(n)||n<(net?0:1)||n>(net?32767:1000000)){status('牌局编号不合法');return;}
+    if(net)setDeckPrefs('net',selectedDifficulty==='random'?'random':d);
     closeModal();startDeal(n,{source:net?'net':'ms',difficulty:d});
   });
   $('deal-input').focus();
