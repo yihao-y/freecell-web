@@ -1,19 +1,23 @@
 # FreeCell Web
 
-An open-source, browser-based FreeCell game with Microsoft-compatible numbered deals, an Expert deal filter, touch controls, solution replay, history and personal statistics.
+An open-source, browser-based FreeCell game with Microsoft-compatible or NetCELL numbered deals, an Expert deal filter, touch controls, solution replay, history and personal statistics.
 
 Play online (after GitHub Pages is enabled): https://yihao-y.github.io/freecell-web/
 
 ## Features
 
 - Play by mouse or touch; smart tap moves, drag moves and undo/redo
-- Classic numbered FreeCell deals; optional Expert selection
+- Microsoft numbered FreeCell deals and its optional Expert selection
+- NetCELL-compatible 8×4 deals: #0–32767 and difficulty 5–12, generated entirely locally
+- Distinct saved histories for Microsoft and each NetCELL difficulty; grouped NetCELL completion statistics
 - Reference solution replay for supported deals
 - Finished-game history, time statistics and trend charts
 - Browser-local autosaving with an IndexedDB secondary snapshot
 - JSON history export/import; offline PWA after an initial online visit
 
 ## Saving and backups
+
+A legacy record without a `source` field remains a Microsoft deal; switching to NetCELL never overwrites the same Microsoft deal number. NetCELL saves are keyed by both the number and difficulty. The original localStorage and IndexedDB identifiers are retained, so existing saves remain readable.
 
 Game records stay in your browser under the same website origin; this site has no account and no remote database. It stores them in localStorage (existing key `freecell-practice-v1`) with an IndexedDB snapshot. Neither protects against clearing site data or losing the device.
 
@@ -27,7 +31,9 @@ Host the root of this repository through **Settings → Pages → Deploy from a 
 
 Updates should keep the same URL and the same storage keys. When updating PWA assets, bump the internal `CACHE_VERSION` in `sw.js`. Do not host future versions on different origins.
 
-Some data sources for Expert filtering and solutions require a network connection on first use. Consult [Third-party notices](THIRD_PARTY_NOTICES.md).
+NetCELL deals come from a black-box reverse-engineered generator, not the original Freecell.net source. The generator matches nine independently observed boards (468 exact card positions); further high-difficulty edge cases remain possible. **ELO ratings are not included**, and Microsoft reference solutions do not apply to NetCELL deals. The original game's official difficulty or ELO data is not copied into this site.
+
+Some data sources for Microsoft Expert filtering and solutions require a network connection on first use. Consult [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## License
 
